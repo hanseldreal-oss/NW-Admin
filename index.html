@@ -1339,7 +1339,6 @@ function App(){
     {cur==="compras"&&<Compras projects={projects} purchases={purchases} setPurchases={setPurchases} expenses={expenses} setExpenses={setExpenses} role={role}/>}
     {cur==="settings"&&<Settings projects={projects} setProjects={setProjects} workers={workers} setWorkers={setWorkers} onReset={reset}/>}
       <div style={{marginTop:32,paddingTop:16,borderTop:"0.5px solid var(--bdr)",textAlign:"center",fontSize:11,color:"var(--muted)",fontFamily:M}}>N&W Construction Corp · v9.0 — Cloud ☁️</div>
-    </div>
     {/* MOBILE BOTTOM NAV */}
     <div style={{position:"fixed",bottom:0,left:0,right:0,background:"var(--bg)",borderTop:"1px solid var(--bdr)",display:"flex",zIndex:200,boxShadow:"0 -2px 12px rgba(0,0,0,0.08)",padding:"4px 0 env(safe-area-inset-bottom)"}}>
       {visTabs.slice(0,Math.min(visTabs.length,5)).map(t=>{const icons={dashboard:"🏠",payapps:"📄",estimates:"📋",personnel:"⏱",reimb:"🧾",compras:"🛒",settings:"⚙️"};return<div key={t.id} onClick={()=>setTab(t.id)} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"6px 2px",cursor:"pointer",position:"relative"}}>
