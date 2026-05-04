@@ -1,0 +1,1343 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>N&W Administración</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,sans-serif;background:#f0ede6;color:#1a1a1a;min-height:100vh}
+#root{max-width:1200px;margin:0 auto;padding:16px 16px 90px 16px}
+input,select,textarea,button{font-family:inherit}
+input[type=date]::-webkit-calendar-picker-indicator,input[type=time]::-webkit-calendar-picker-indicator{cursor:pointer;opacity:0.6}
+::-webkit-scrollbar{width:5px;height:5px}::-webkit-scrollbar-thumb{background:#d1d5db;border-radius:3px}
+/* MOBILE */
+@media(max-width:640px){
+  #root{padding:0 0 80px 0}
+  input,select,textarea{font-size:16px!important}
+}
+:root{
+  --bg:#fff;--surf:#f8f6f1;--page:#f0ede6;--text:#1a1a1a;--muted:#6b7280;
+  --bdr:rgba(0,0,0,0.09);--bdrMd:rgba(0,0,0,0.18);--r:8px;--rLg:12px;
+  --warn:#92400e;--warn-bg:#fef3c7;--warn-bdr:#f59e0b;
+  --succ:#065f46;--succ-bg:#d1fae5;--succ-bdr:#10b981;
+  --dngr:#991b1b;--dngr-bg:#fee2e2;--dngr-bdr:#ef4444;
+  --info:#1e40af;--info-bg:#dbeafe;--info-bdr:#3b82f6;
+  --purp:#5b21b6;--purp-bg:#ede9fe;--purp-bdr:#7c3aed;
+  --teal:#0f766e;--teal-bg:#ccfbf1;--teal-bdr:#14b8a6;
+  --orng:#9a3412;--orng-bg:#ffedd5;--orng-bdr:#f97316;
+  --dis:#6b7280;--dis-bg:#f3f4f6;--dis-bdr:#d1d5db;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
+@keyframes slideIn{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
+.toast{animation:slideIn 0.25s ease}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script type="text/babel">
+const {useState,useEffect,useRef,useMemo,useCallback}=React;
+
+/* ─── SUPABASE ─── */
+const SB_URL="https://hkenlrtsqjvkaibxffaq.supabase.co";
+const SB_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhrZW5scnRzcWp2a2FpYnhmZmFxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc1ODU3OTksImV4cCI6MjA5MzE2MTc5OX0.09N5HoB3vFf5r1G149w97nK1DaSdMlhtKKIHdi3p6Qo";
+const sb=supabase.createClient(SB_URL,SB_KEY);
+const sbGet=async(key)=>{const{data,error}=await sb.from("app_data").select("value").eq("key",key).single();if(error||!data)return null;return data.value;};
+const sbSet=async(key,value)=>{await sb.from("app_data").upsert({key,value,updated_at:new Date().toISOString()},{onConflict:"key"});};
+
+
+/* ─── DEFAULT DATA ─── */
+const DEFAULT_PROJECTS=[
+  {id:1,name:"MGE Lot 9",code:"L9",client:"Twenty Six Concrete Services, LLC",contact:"",email:"",phone:"",address:"",contractValue:195000,reimbSeq:0,
+   payApps:[
+     {id:101,number:"PA-001",invNum:"NW-L9-2026-001",date:"2026-03-26",amount:4000,description:"Invoice Labors — Semana 1 (Mar 23–27)",status:"Paid",isReimb:false},
+     {id:102,number:"PA-002",invNum:"NW-L9-2026-002",date:"2026-04-04",amount:5250,description:"Invoice Labors — Semana 2 (Mar 28–Abr 01)",status:"Paid",isReimb:false},
+     {id:103,number:"PA-003",invNum:"NW-L9-2026-003",date:"2026-04-08",amount:4000,description:"Invoice Labors — Semana 3 (Abr 02–08)",status:"Paid",isReimb:false},
+     {id:104,number:"PA-004",invNum:"NW-L9-2026-004",date:"2026-04-15",amount:4500,description:"Invoice Labors — Semana 4 (Abr 08–15)",status:"Paid",isReimb:false},
+     {id:105,number:"PA-005",invNum:"NW-L9-2026-005",date:"2026-04-22",amount:5000,description:"Invoice Labors — Semana 5 (Abr 16–22)",status:"Paid",isReimb:false},
+     {id:106,number:"PA-006",invNum:"NW-L9-2026-006",date:"2026-04-29",amount:5000,description:"Invoice Labors — Semana 6 (Abr 23–29)",status:"Sent",isReimb:false},
+   ],changeOrders:[]},
+  {id:2,name:"MGE Lot 10",code:"L10",client:"Twenty Six Concrete Services, LLC",contact:"",email:"",phone:"",address:"",contractValue:195000,reimbSeq:0,
+   payApps:[
+     {id:201,number:"PA-001",invNum:"NW-L10-2026-001",date:"2026-03-26",amount:4000,description:"Invoice Labors — Semana 1 (Mar 23–27)",status:"Paid",isReimb:false},
+     {id:202,number:"PA-002",invNum:"NW-L10-2026-002",date:"2026-04-01",amount:5250,description:"Invoice Labors — Semana 2 (Mar 28–Abr 01)",status:"Paid",isReimb:false},
+     {id:203,number:"PA-003",invNum:"NW-L10-2026-003",date:"2026-04-08",amount:4000,description:"Invoice Labors — Semana 3 (Abr 02–08)",status:"Paid",isReimb:false},
+     {id:204,number:"PA-004",invNum:"NW-L10-2026-004",date:"2026-04-15",amount:4500,description:"Invoice Labors — Semana 4 (Abr 08–15)",status:"Paid",isReimb:false},
+     {id:205,number:"PA-005",invNum:"NW-L10-2026-005",date:"2026-04-22",amount:6500,description:"Invoice Labors — Semana 5 (Abr 16–22)",status:"Paid",isReimb:false},
+     {id:206,number:"PA-006",invNum:"NW-L10-2026-006",date:"2026-04-29",amount:5000,description:"Invoice Labors — Semana 6 (Abr 23–29)",status:"Sent",isReimb:false},
+   ],changeOrders:[]},
+  {id:3,name:"Alton Rd",code:"AR",client:"",contact:"",email:"",phone:"",address:"",contractValue:150000,reimbSeq:0,payApps:[],changeOrders:[]},
+];
+const DEFAULT_ESTIMATES=[{id:1,number:"EST-2026-001",status:"Draft",sentDate:"",followUpDate:"",client:{name:"",contact:"",email:"",phone:""},projectName:"",lineItems:[],inclusions:[],exclusions:[],notes:""}];
+const DEFAULT_WORKERS=[
+  {id:1,name:"Noel Mejias",  role:"Carpintero",appRole:"supervisor",payType:"salary",weeklyRate:1200},
+  {id:2,name:"Jackson Mejias",role:"Carpintero",appRole:"foreman",  payType:"salary",weeklyRate:1400},
+  {id:3,name:"Eddy",          role:"Carpintero",appRole:"foreman",  payType:"salary",weeklyRate:1700},
+  {id:4,name:"Orlando Robledo",role:"Carpintero",appRole:"worker",  payType:"hourly",hourlyRate:25},
+  {id:5,name:"Reinaldo Mejia", role:"Carpintero",appRole:"worker",  payType:"hourly",hourlyRate:27},
+  {id:6,name:"Juan Jarquin",   role:"Carpintero",appRole:"worker",  payType:"hourly",hourlyRate:26},
+  {id:7,name:"Aron Rios",      role:"Ayudante",  appRole:"worker",  payType:"hourly",hourlyRate:21},
+  {id:8,name:"Jarley Espinoza",role:"Ayudante",  appRole:"worker",  payType:"hourly",hourlyRate:21},
+  {id:9,name:"Miguel Calero",  role:"Ayudante",  appRole:"worker",  payType:"hourly",hourlyRate:21},
+  {id:10,name:"Javier Sandoval",role:"Ayudante", appRole:"worker",  payType:"hourly",hourlyRate:23},
+  {id:11,name:"Nestor Mendoza", role:"Ayudante", appRole:"worker",  payType:"hourly",hourlyRate:18},
+  {id:12,name:"Santo Lopez",    role:"Ayudante", appRole:"worker",  payType:"hourly",hourlyRate:23},
+];
+const DEFAULT_ENTRIES=[];const DEFAULT_PURCHASES=[];const DEFAULT_EXPENSES=[];const DEFAULT_PENDING=[];const DEFAULT_REIMB=[];
+
+/* ─── UTILS ─── */
+const TODAY=new Date().toISOString().split("T")[0];
+const f$=n=>"$"+Number(n||0).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});
+const pct=(a,b)=>b>0?Math.min(100,Math.round(a/b*100)):0;
+const calcH=(i,o,deadMins=0)=>{if(!i||!o)return 0;const[ih,im]=i.split(":").map(Number),[oh,om]=o.split(":").map(Number);const mins=(oh*60+om)-(ih*60+im)-(deadMins||0);if(mins<=0)return 0;const rawH=mins/60;const netH=rawH>5?rawH-0.5:rawH;return Math.max(0,Math.round(netH*10)/10);};
+const getWeekStart=ds=>{const d=new Date(ds+"T12:00:00");const day=d.getDay();d.setDate(d.getDate()-day+(day===0?-6:1));return d.toISOString().split("T")[0];};
+const addDays=(ds,n)=>{const d=new Date(ds+"T12:00:00");d.setDate(d.getDate()+n);return d.toISOString().split("T")[0];};
+const fmtDate=ds=>{if(!ds)return"";const[y,m,d]=ds.split("-");return["","Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][+m]+" "+d+", "+y;};
+const dailyRate=w=>w.payType==="salary"?Math.round((w.weeklyRate||0)/6*100)/100:0;
+const entryCost=(e,w)=>{if(!w)return 0;return w.payType==="salary"?dailyRate(w):e.hours*(w.hourlyRate||0);};
+const getThursdayStart=ds=>{const d=new Date(ds+"T12:00:00");const day=d.getDay();// 0=Sun,1=Mon,2=Tue,3=Wed,4=Thu,5=Fri,6=Sat
+const diff=day>=4?day-4:day+3;d.setDate(d.getDate()-diff);return d.toISOString().split("T")[0];};
+const nextPANum=proj=>`NW-${proj.code}-${new Date().getFullYear()}-${String((proj.payApps?.length||0)+1).padStart(3,"0")}`;
+const nextReimbNum=proj=>`REIM-${proj.code}-${new Date().getFullYear()}-${String((proj.reimbSeq||0)+1).padStart(3,"0")}`;
+const nextEstNum=estimates=>`EST-${new Date().getFullYear()}-${String((estimates?.length||0)+1).padStart(3,"0")}`;
+
+/* ─── DESIGN ─── */
+const M="'SF Mono','Fira Code',Consolas,monospace";
+const SC={Paid:{bg:"var(--succ-bg)",c:"var(--succ)"},Sent:{bg:"var(--orng-bg)",c:"var(--orng)"},Draft:{bg:"var(--surf)",c:"var(--muted)"},Approved:{bg:"var(--succ-bg)",c:"var(--succ)"},Pending:{bg:"var(--warn-bg)",c:"var(--warn)"},Rejected:{bg:"var(--dngr-bg)",c:"var(--dngr)"},Submitted:{bg:"var(--info-bg)",c:"var(--info)"},Active:{bg:"var(--succ-bg)",c:"var(--succ)"},Unavailable:{bg:"var(--dngr-bg)",c:"var(--dngr)"},Available:{bg:"var(--info-bg)",c:"var(--info)"},Salario:{bg:"var(--purp-bg)",c:"var(--purp)"},Hora:{bg:"var(--info-bg)",c:"var(--info)"},Invoiced:{bg:"var(--succ-bg)",c:"var(--succ)"},PendInv:{bg:"var(--orng-bg)",c:"var(--orng)"},Enviado:{bg:"var(--info-bg)",c:"var(--info)"},Reimb:{bg:"var(--teal-bg)",c:"var(--teal)"}};
+const Badge=({status,label})=>{const s=SC[status]||SC.Draft;return<span style={{background:s.bg,color:s.c,padding:"2px 9px",borderRadius:"var(--r)",fontSize:11,fontWeight:600,fontFamily:M,whiteSpace:"nowrap"}}>{label||status}</span>;};
+const Bar=({value,max,color})=>{const p=pct(value,max);const c=color||(p>=90?"var(--succ)":p>=40?"var(--warn-bdr)":"var(--bdrMd)");return<div style={{background:"var(--page)",borderRadius:4,height:6,overflow:"hidden"}}><div style={{width:p+"%",height:"100%",background:c,borderRadius:4,transition:"width 0.4s"}}/></div>;};
+const Kpi=({label,value,sub,color})=><div style={{background:"var(--surf)",borderRadius:"var(--r)",padding:"13px 15px",border:"0.5px solid var(--bdr)"}}><div style={{fontSize:11,color:"var(--muted)",marginBottom:6,fontFamily:M}}>{label}</div><div style={{fontSize:21,fontWeight:600,color:color||"var(--text)",fontFamily:M,marginBottom:sub?3:0}}>{value}</div>{sub&&<div style={{fontSize:11,color:"var(--muted)"}}>{sub}</div>}</div>;
+const Btn=({v="def",sm,children,...p})=>{const vs={def:{bg:"transparent",c:"var(--muted)",b:"0.5px solid var(--bdrMd)"},amber:{bg:"var(--warn-bg)",c:"var(--warn)",b:"0.5px solid var(--warn-bdr)"},succ:{bg:"var(--succ-bg)",c:"var(--succ)",b:"0.5px solid var(--succ-bdr)"},dngr:{bg:"var(--dngr-bg)",c:"var(--dngr)",b:"0.5px solid var(--dngr-bdr)"},info:{bg:"var(--info-bg)",c:"var(--info)",b:"0.5px solid var(--info-bdr)"},purp:{bg:"var(--purp-bg)",c:"var(--purp)",b:"0.5px solid var(--purp-bdr)"},teal:{bg:"var(--teal-bg)",c:"var(--teal)",b:"0.5px solid var(--teal-bdr)"},orng:{bg:"var(--orng-bg)",c:"var(--orng)",b:"0.5px solid var(--orng-bdr)"}};const s=vs[v]||vs.def;return<button {...p} style={{background:s.bg,color:s.c,border:s.b,borderRadius:"var(--r)",padding:sm?"3px 9px":"7px 13px",fontSize:sm?11:12,fontWeight:600,fontFamily:M,cursor:"pointer",lineHeight:1.4,...p.style}}>{children}</button>;};
+const Fld=({label,...p})=><div style={{marginBottom:10}}>{label&&<div style={{fontSize:11,color:"var(--muted)",marginBottom:3,fontFamily:M}}>{label}</div>}<input {...p} style={{background:"var(--surf)",border:"0.5px solid var(--bdrMd)",color:"var(--text)",padding:"7px 10px",borderRadius:"var(--r)",width:"100%",fontSize:13,fontFamily:M,outline:"none",boxSizing:"border-box",...p.style}}/></div>;
+const Slct=({label,children,...p})=><div style={{marginBottom:10}}>{label&&<div style={{fontSize:11,color:"var(--muted)",marginBottom:3,fontFamily:M}}>{label}</div>}<select {...p} style={{background:"var(--surf)",border:"0.5px solid var(--bdrMd)",color:"var(--text)",padding:"7px 10px",borderRadius:"var(--r)",width:"100%",fontSize:13,fontFamily:M,outline:"none",boxSizing:"border-box",...p.style}}>{children}</select></div>;
+const Toggle=({on,onClick})=><div onClick={onClick} style={{width:38,height:21,borderRadius:11,background:on?"var(--info-bg)":"var(--surf)",border:"1px solid "+(on?"var(--info-bdr)":"var(--bdrMd)"),cursor:"pointer",position:"relative",transition:"all 0.2s",flexShrink:0}}><div style={{width:15,height:15,borderRadius:8,background:on?"var(--info-bdr)":"var(--muted)",position:"absolute",top:2,left:on?19:2,transition:"all 0.2s",opacity:on?1:0.5}}/></div>;
+const TH={padding:"9px 12px",textAlign:"left",fontSize:11,color:"var(--muted)",fontFamily:M,borderBottom:"1px solid var(--bdr)",fontWeight:500,background:"var(--surf)"};
+const TD={padding:"10px 12px",fontSize:13,color:"var(--text)",borderBottom:"0.5px solid var(--bdr)"};
+const TDF={padding:"10px 12px",fontSize:13,color:"var(--text)",borderBottom:"none"};
+const Card=({children,style})=><div style={{background:"var(--bg)",border:"0.5px solid var(--bdr)",borderRadius:"var(--rLg)",overflow:"hidden",boxShadow:"0 1px 4px rgba(0,0,0,0.06)",...style}}>{children}</div>;
+const SHead=({title,action})=><div style={{padding:"12px 15px",borderBottom:"0.5px solid var(--bdr)",background:"var(--surf)",display:"flex",justifyContent:"space-between",alignItems:"center"}}><span style={{fontWeight:600,fontSize:14}}>{title}</span>{action}</div>;
+const Empty=({msg})=><div style={{padding:36,textAlign:"center",color:"var(--muted)",fontStyle:"italic",fontSize:13}}>{msg}</div>;
+const ROLES={master:{label:"Master",color:"var(--warn)",bg:"var(--warn-bg)"},supervisor:{label:"Supervisor",color:"var(--purp)",bg:"var(--purp-bg)"},foreman:{label:"Foreman",color:"var(--info)",bg:"var(--info-bg)"}};
+const openPrint=html=>{const w=window.open("","_blank","width=960,height=720");if(w){w.document.write(html);w.document.close();}else alert("Permite las ventanas emergentes.");};
+const CO={name:"N&W Construction Corp",address:"1858 NW 69th Ter",city:"Miami, FL 33147"};
+
+/* ─── INVOICE HTML GENERATORS ─── */
+function paInvoiceHTML(proj,pa){
+  return`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${pa.invNum}</title><style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:-apple-system,sans-serif;padding:48px;color:#1a1a1a}@media print{.np{display:none}}</style></head><body>
+  <div style="display:flex;justify-content:space-between;margin-bottom:36px"><div><div style="font-size:22px;font-weight:700;color:#92400e">${CO.name}</div><div style="color:#6b7280;font-size:13px">${CO.address}<br>${CO.city}</div></div><div style="text-align:right"><div style="font-size:30px;font-weight:700">INVOICE</div><div style="font-family:monospace;color:${pa.isReimb?"#f97316":"#92400e"};font-weight:600;font-size:15px;margin-top:4px">${pa.invNum}</div><div style="color:#6b7280;font-size:13px;margin-top:4px">Date: ${fmtDate(pa.date)}</div></div></div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:32px"><div style="background:#f8f6f1;border-radius:8px;padding:16px"><div style="font-size:10px;color:#6b7280;text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px">Bill To</div><div style="font-size:15px;font-weight:600;margin-bottom:4px">${proj.client||"—"}</div>${proj.contact?`<div style="color:#6b7280;font-size:13px">${proj.contact}</div>`:""}${proj.email?`<div style="color:#6b7280;font-size:13px">${proj.email}</div>`:""}${proj.address?`<div style="color:#6b7280;font-size:13px">${proj.address}</div>`:""}</div><div style="background:#f8f6f1;border-radius:8px;padding:16px"><div style="font-size:10px;color:#6b7280;text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px">Project</div><div style="font-size:15px;font-weight:600;margin-bottom:4px">${proj.name}</div><div style="color:#6b7280;font-size:13px">${pa.number}</div><div style="color:${pa.isReimb?"#f97316":"#f59e0b"};font-weight:600;font-size:13px;margin-top:4px">${pa.isReimb?"Reimbursable Materials & Expenses":"Labor Pay Application"}</div></div></div>
+  <table style="width:100%;border-collapse:collapse;margin-bottom:24px"><thead><tr style="background:#f8f6f1"><th style="padding:10px;text-align:left;font-size:11px;color:#6b7280;border-bottom:2px solid #e5e7eb;font-family:monospace">Descripción</th><th style="padding:10px;text-align:right;font-size:11px;color:#6b7280;border-bottom:2px solid #e5e7eb;font-family:monospace">Monto</th></tr></thead><tbody><tr><td style="padding:14px 10px;font-size:14px">${pa.description}</td><td style="padding:14px 10px;text-align:right;font-size:18px;font-weight:700;font-family:monospace">${f$(pa.amount)}</td></tr></tbody><tfoot><tr style="background:#fef3c7"><td style="padding:12px 10px;text-align:right;font-weight:700">TOTAL DUE</td><td style="padding:12px 10px;text-align:right;font-weight:700;font-size:20px;font-family:monospace;color:#92400e">${f$(pa.amount)}</td></tr></tfoot></table>
+  <div style="border-top:1px solid #e5e7eb;padding-top:16px;display:flex;justify-content:space-between;align-items:flex-end"><div style="font-size:12px;color:#6b7280"><strong>Payment Terms:</strong> Due upon receipt</div><div style="text-align:right"><div style="font-size:12px;color:#6b7280;margin-bottom:4px">Total Due</div><div style="font-size:30px;font-weight:700;color:#92400e;font-family:monospace">${f$(pa.amount)}</div></div></div>
+  <div style="text-align:center;margin-top:36px" class="np"><button onclick="window.print()" style="background:#fef3c7;color:#92400e;border:1.5px solid #f59e0b;padding:10px 32px;font-size:14px;font-weight:700;border-radius:8px;cursor:pointer">🖨️ Imprimir / Guardar PDF</button></div></body></html>`;
+}
+
+function reimbInvoiceHTML(proj,items,weekStart,weekEnd,invNum){
+  const total=items.reduce((s,i)=>s+i.amount,0);
+  const rows=items.map((it,i)=>`<tr><td style="padding:8px 10px;border-bottom:1px solid #e5e7eb">${i+1}</td><td style="padding:8px 10px;border-bottom:1px solid #e5e7eb;font-size:12px;color:#6b7280;font-family:monospace">${it.date}</td><td style="padding:8px 10px;border-bottom:1px solid #e5e7eb">${it.description}</td><td style="padding:8px 10px;border-bottom:1px solid #e5e7eb;font-size:12px;color:#6b7280">${it.category}</td><td style="padding:8px 10px;border-bottom:1px solid #e5e7eb;text-align:right;font-weight:700;font-family:monospace">${f$(it.amount)}</td></tr>`).join("");
+  return`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${invNum}</title><style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:-apple-system,sans-serif;padding:48px;color:#1a1a1a}@media print{.np{display:none}}</style></head><body>
+  <div style="display:flex;justify-content:space-between;margin-bottom:36px"><div><div style="font-size:22px;font-weight:700;color:#92400e">${CO.name}</div><div style="color:#6b7280;font-size:13px">${CO.address}<br>${CO.city}</div></div><div style="text-align:right"><div style="font-size:30px;font-weight:700">INVOICE</div><div style="font-family:monospace;color:#f97316;font-weight:600;font-size:15px;margin-top:4px">${invNum}</div><div style="color:#6b7280;font-size:13px;margin-top:4px">Date: ${fmtDate(weekEnd)}</div></div></div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:32px"><div style="background:#f8f6f1;border-radius:8px;padding:16px"><div style="font-size:10px;color:#6b7280;text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px">Bill To</div><div style="font-size:15px;font-weight:600;margin-bottom:4px">${proj.client||"—"}</div>${proj.contact?`<div style="color:#6b7280;font-size:13px">${proj.contact}</div>`:""}${proj.email?`<div style="color:#6b7280;font-size:13px">${proj.email}</div>`:""}${proj.address?`<div style="color:#6b7280;font-size:13px">${proj.address}</div>`:""}</div><div style="background:#fff7ed;border-radius:8px;padding:16px"><div style="font-size:10px;color:#6b7280;text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px">Project / Período</div><div style="font-size:15px;font-weight:600;margin-bottom:4px">${proj.name}</div><div style="color:#6b7280;font-size:13px">${fmtDate(weekStart)} – ${fmtDate(weekEnd)}</div><div style="color:#f97316;font-weight:600;font-size:13px;margin-top:4px">Reimbursable Materials & Expenses</div></div></div>
+  <table style="width:100%;border-collapse:collapse;margin-bottom:24px"><thead><tr style="background:#f8f6f1"><th style="padding:10px;text-align:left;font-size:11px;color:#6b7280;border-bottom:2px solid #e5e7eb;font-family:monospace">#</th><th style="padding:10px;text-align:left;font-size:11px;color:#6b7280;border-bottom:2px solid #e5e7eb;font-family:monospace">Fecha</th><th style="padding:10px;text-align:left;font-size:11px;color:#6b7280;border-bottom:2px solid #e5e7eb;font-family:monospace">Descripción</th><th style="padding:10px;text-align:left;font-size:11px;color:#6b7280;border-bottom:2px solid #e5e7eb;font-family:monospace">Categoría</th><th style="padding:10px;text-align:right;font-size:11px;color:#6b7280;border-bottom:2px solid #e5e7eb;font-family:monospace">Monto</th></tr></thead><tbody>${rows}</tbody><tfoot><tr style="background:#ffedd5"><td colspan="4" style="padding:12px 10px;text-align:right;font-weight:700">TOTAL REIMBURSABLE</td><td style="padding:12px 10px;text-align:right;font-weight:700;font-size:20px;font-family:monospace;color:#9a3412">${f$(total)}</td></tr></tfoot></table>
+  <div style="border-top:1px solid #e5e7eb;padding-top:16px;display:flex;justify-content:space-between;align-items:flex-end"><div style="font-size:12px;color:#6b7280"><strong>Payment Terms:</strong> Due upon receipt<br>Reimbursable materials &amp; expenses — ${proj.name}</div><div style="text-align:right"><div style="font-size:12px;color:#6b7280;margin-bottom:4px">Total Due</div><div style="font-size:30px;font-weight:700;color:#9a3412;font-family:monospace">${f$(total)}</div></div></div>
+  <div style="text-align:center;margin-top:36px" class="np"><button onclick="window.print()" style="background:#ffedd5;color:#9a3412;border:1.5px solid #f97316;padding:10px 32px;font-size:14px;font-weight:700;border-radius:8px;cursor:pointer">🖨️ Imprimir / Guardar PDF</button></div></body></html>`;
+}
+
+function estimateHTML(est){
+  const total=est.lineItems.reduce((s,i)=>s+i.total,0);
+  const rows=est.lineItems.map((it,i)=>`<tr><td style="padding:9px 10px;border-bottom:1px solid #e5e7eb">${i+1}</td><td style="padding:9px 10px;border-bottom:1px solid #e5e7eb">${it.description}</td><td style="padding:9px 10px;border-bottom:1px solid #e5e7eb;text-align:center">${it.qty}</td><td style="padding:9px 10px;border-bottom:1px solid #e5e7eb;text-align:center">${it.unit}</td><td style="padding:9px 10px;border-bottom:1px solid #e5e7eb;text-align:right;font-family:monospace">${f$(it.unitPrice)}</td><td style="padding:9px 10px;border-bottom:1px solid #e5e7eb;text-align:right;font-weight:700;font-family:monospace">${f$(it.total)}</td></tr>`).join("");
+  const incl=est.inclusions.map(i=>`<li style="margin-bottom:4px;font-size:13px">✓ ${i}</li>`).join("");
+  const excl=est.exclusions.map(i=>`<li style="margin-bottom:4px;font-size:13px">✗ ${i}</li>`).join("");
+  return`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${est.number}</title><style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:-apple-system,sans-serif;padding:48px;color:#1a1a1a}@media print{.np{display:none}}</style></head><body>
+  <div style="display:flex;justify-content:space-between;margin-bottom:36px"><div><div style="font-size:22px;font-weight:700;color:#92400e">${CO.name}</div><div style="color:#6b7280;font-size:13px">${CO.address}<br>${CO.city}</div></div><div style="text-align:right"><div style="font-size:30px;font-weight:700">ESTIMATE</div><div style="font-family:monospace;color:#92400e;font-weight:600;font-size:15px;margin-top:4px">${est.number}</div>${est.sentDate?`<div style="color:#6b7280;font-size:13px;margin-top:4px">Date: ${fmtDate(est.sentDate)}</div>`:""}</div></div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:32px"><div style="background:#f8f6f1;border-radius:8px;padding:16px"><div style="font-size:10px;color:#6b7280;text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px">Prepared For</div><div style="font-size:15px;font-weight:600;margin-bottom:4px">${est.client.name||"—"}</div>${est.client.contact?`<div style="color:#6b7280;font-size:13px">${est.client.contact}</div>`:""}${est.client.email?`<div style="color:#6b7280;font-size:13px">${est.client.email}</div>`:""}${est.client.phone?`<div style="color:#6b7280;font-size:13px">${est.client.phone}</div>`:""}</div><div style="background:#f8f6f1;border-radius:8px;padding:16px"><div style="font-size:10px;color:#6b7280;text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px">Project</div><div style="font-size:15px;font-weight:600;margin-bottom:4px">${est.projectName||"—"}</div>${est.followUpDate?`<div style="color:#6b7280;font-size:13px">Follow-up: ${fmtDate(est.followUpDate)}</div>`:""}</div></div>
+  <table style="width:100%;border-collapse:collapse;margin-bottom:24px"><thead><tr style="background:#f8f6f1"><th style="padding:10px;text-align:left;font-size:11px;color:#6b7280;border-bottom:2px solid #e5e7eb;font-family:monospace">#</th><th style="padding:10px;text-align:left;font-size:11px;color:#6b7280;border-bottom:2px solid #e5e7eb;font-family:monospace">Descripción</th><th style="padding:10px;text-align:center;font-size:11px;color:#6b7280;border-bottom:2px solid #e5e7eb;font-family:monospace">Cant.</th><th style="padding:10px;text-align:center;font-size:11px;color:#6b7280;border-bottom:2px solid #e5e7eb;font-family:monospace">Und.</th><th style="padding:10px;text-align:right;font-size:11px;color:#6b7280;border-bottom:2px solid #e5e7eb;font-family:monospace">P.Unit</th><th style="padding:10px;text-align:right;font-size:11px;color:#6b7280;border-bottom:2px solid #e5e7eb;font-family:monospace">Total</th></tr></thead><tbody>${rows}</tbody><tfoot><tr style="background:#fef3c7"><td colspan="5" style="padding:12px 10px;text-align:right;font-weight:700">TOTAL ESTIMATE</td><td style="padding:12px 10px;text-align:right;font-weight:700;font-size:22px;font-family:monospace;color:#92400e">${f$(total)}</td></tr></tfoot></table>
+  ${(incl||excl)?`<div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:24px">${incl?`<div><div style="font-weight:700;color:#065f46;margin-bottom:8px;font-size:13px">Inclusions</div><ul style="list-style:none">${incl}</ul></div>`:""}${excl?`<div><div style="font-weight:700;color:#991b1b;margin-bottom:8px;font-size:13px">Exclusions</div><ul style="list-style:none">${excl}</ul></div>`:""}</div>`:""}
+  ${est.notes?`<div style="background:#f8f6f1;border-radius:8px;padding:14px;margin-bottom:24px"><div style="font-size:11px;color:#6b7280;margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em">Notes</div><div style="font-size:13px">${est.notes}</div></div>`:""}
+  <div style="border-top:2px solid #e5e7eb;padding-top:16px;text-align:right"><div style="font-size:14px;color:#6b7280;margin-bottom:4px">TOTAL ESTIMATE AMOUNT</div><div style="font-size:34px;font-weight:700;color:#92400e;font-family:monospace">${f$(total)}</div></div>
+  <div style="text-align:center;margin-top:36px" class="np"><button onclick="window.print()" style="background:#fef3c7;color:#92400e;border:1.5px solid #f59e0b;padding:10px 32px;font-size:14px;font-weight:700;border-radius:8px;cursor:pointer">🖨️ Imprimir / Guardar PDF</button></div></body></html>`;
+}
+
+/* ─── NOTIFICATIONS ─── */
+function useNotifications(timeEntries){
+  const ref=useRef({});const[toasts,setToasts]=useState([]);
+  const addToast=useCallback((msg,type="warn")=>{const id=Date.now();setToasts(t=>[...t,{id,msg,type}]);setTimeout(()=>setToasts(t=>t.filter(x=>x.id!==id)),7000);},[]);
+  useEffect(()=>{if("Notification"in window&&Notification.permission==="default")Notification.requestPermission();},[]);
+  const fire=(title,body)=>{addToast(title+" — "+body,"warn");if("Notification"in window&&Notification.permission==="granted")try{new Notification(title,{body});}catch(e){}};
+  useEffect(()=>{
+    const check=()=>{const now=new Date();const day=now.getDay();if(day===0)return;const sat=day===6;const h=now.getHours();const m=now.getMinutes();const k=now.toDateString();if(!ref.current[k])ref.current[k]={};const s=ref.current[k];const tod=now.toISOString().split("T")[0];const open=timeEntries.some(e=>e.date===tod&&(!e.clockOut||e.clockOut===""));const any=timeEntries.some(e=>e.date===tod);
+      if(h===8&&m>=30&&m<35&&!s.a){s.a=1;fire("⏰ N&W — Recordatorio","No se olvide de hacer el listado de la nómina.");}
+      if(!sat){if(h===17&&m<5&&!s.b){s.b=1;fire("⏰ N&W — Cierre de nómina","Registra la salida del personal.");}if(h===19&&m<5&&!s.c&&(open||!any)){s.c=1;fire("⚠️ N&W — Nómina pendiente","La nómina de hoy no ha sido cerrada.");}}
+      else{if(h===13&&m<5&&!s.d){s.d=1;fire("⏰ N&W — Cierre (Sáb)","Hora de cerrar la nómina del sábado.");}if(h===15&&m<5&&!s.e&&(open||!any)){s.e=1;fire("⚠️ N&W — Nómina pendiente (Sáb)","La nómina del sábado no ha sido cerrada.");}}
+    };
+    const iv=setInterval(check,30000);check();return()=>clearInterval(iv);
+  },[timeEntries]);
+  return{toasts,addToast};
+}
+function Toasts({toasts}){if(!toasts.length)return null;return<div style={{position:"fixed",top:16,right:16,zIndex:9999,display:"flex",flexDirection:"column",gap:8,maxWidth:360}}>{toasts.map(t=><div key={t.id} className="toast" style={{background:t.type==="succ"?"var(--succ-bg)":t.type==="info"?"var(--info-bg)":"var(--warn-bg)",border:"1px solid "+(t.type==="succ"?"var(--succ-bdr)":t.type==="info"?"var(--info-bdr)":"var(--warn-bdr)"),borderRadius:"var(--r)",padding:"12px 16px",fontSize:13,color:t.type==="succ"?"var(--succ)":t.type==="info"?"var(--info)":"var(--warn)",boxShadow:"0 4px 16px rgba(0,0,0,0.12)",fontWeight:500}}>{t.msg}</div>)}</div>;}
+
+/* ═══ PAYAPPS ═══ */
+function PayApps({projects,setProjects,role}){
+  const[pid,setPid]=useState(projects[0]?.id);
+  const[view,setView]=useState("pa");
+  // FIX 2: filter by type
+  const[paFilter,setPaFilter]=useState("all"); // all | labor | reimb | co
+  const[paF,setPaF]=useState({description:"",amount:"",date:TODAY,status:"Draft"});
+  const[addPA,setAddPA]=useState(false);
+  const[coF,setCoF]=useState({description:"",amount:"",date:TODAY,status:"Draft",inContract:false});
+  const[addCO,setAddCO]=useState(false);
+  const[search,setSearch]=useState("");
+  const isMaster=role==="master";
+  const proj=projects.find(p=>p.id===pid)||projects[0];
+  if(!proj)return<Empty msg="Sin proyectos."/>;
+  const incCOs=proj.changeOrders.filter(c=>c.status==="Approved"&&c.inContract).reduce((s,c)=>s+c.amount,0);
+  const revC=proj.contractValue+incCOs;
+  const totalPA=proj.payApps.reduce((s,pa)=>s+pa.amount,0);
+  const paidPA=proj.payApps.filter(pa=>pa.status==="Paid").reduce((s,pa)=>s+pa.amount,0);
+  const sentPA=proj.payApps.filter(pa=>pa.status==="Sent").reduce((s,pa)=>s+pa.amount,0);
+  const appCO=proj.changeOrders.filter(c=>c.status==="Approved").reduce((s,c)=>s+c.amount,0);
+
+  // FIX 2: subtotals per type
+  const laborPAs=proj.payApps.filter(pa=>!pa.isReimb);
+  const reimbPAs=proj.payApps.filter(pa=>pa.isReimb);
+  const laborTotal=laborPAs.reduce((s,pa)=>s+pa.amount,0);
+  const reimbTotal=reimbPAs.reduce((s,pa)=>s+pa.amount,0);
+  const coTotal=proj.changeOrders.reduce((s,co)=>s+co.amount,0);
+
+  const doAddPA=()=>{if(!paF.description||!paF.amount)return;const invNum=nextPANum(proj);setProjects(projects.map(p=>p.id!==proj.id?p:{...p,payApps:[...p.payApps,{id:Date.now(),number:"PA-"+String(p.payApps.length+1).padStart(3,"0"),invNum,description:paF.description,amount:+paF.amount,date:paF.date,status:paF.status,isReimb:false}]}));setPaF({description:"",amount:"",date:TODAY,status:"Draft"});setAddPA(false);};
+  const doAddCO=()=>{if(!coF.description||!coF.amount)return;setProjects(projects.map(p=>p.id!==proj.id?p:{...p,changeOrders:[...p.changeOrders,{id:Date.now(),number:"CO-"+String(p.changeOrders.length+1).padStart(3,"0"),description:coF.description,amount:+coF.amount,date:coF.date,status:coF.status,inContract:coF.inContract}]}));setCoF({description:"",amount:"",date:TODAY,status:"Draft",inContract:false});setAddCO(false);};
+  const updPA=(id,st)=>setProjects(projects.map(p=>p.id!==proj.id?p:{...p,payApps:p.payApps.map(pa=>pa.id===id?{...pa,status:st}:pa)}));
+  const updCO=(id,ch)=>setProjects(projects.map(p=>p.id!==proj.id?p:{...p,changeOrders:p.changeOrders.map(c=>c.id===id?{...c,...ch}:c)}));
+  // FIX 1: only master can delete
+  const delPA=id=>{if(!isMaster)return;if(confirm("¿Eliminar esta PA?"))setProjects(projects.map(p=>p.id!==proj.id?p:{...p,payApps:p.payApps.filter(pa=>pa.id!==id)}));};
+
+  // FIX 2: filter PAs by type + search
+  let filtPAs=proj.payApps;
+  if(paFilter==="labor")filtPAs=filtPAs.filter(pa=>!pa.isReimb);
+  else if(paFilter==="reimb")filtPAs=filtPAs.filter(pa=>pa.isReimb);
+  if(search)filtPAs=filtPAs.filter(pa=>(pa.invNum||"").toLowerCase().includes(search.toLowerCase())||(pa.description||"").toLowerCase().includes(search.toLowerCase())||(pa.number||"").toLowerCase().includes(search.toLowerCase()));
+
+  return(
+    <div style={{display:"flex",gap:18}}>
+      <div style={{width:215,flexShrink:0}}>
+        <div style={{fontSize:10,color:"var(--muted)",marginBottom:9,fontFamily:M,letterSpacing:"0.07em",textTransform:"uppercase"}}>Proyectos</div>
+        {projects.map(p=>{const b=p.payApps.reduce((s,pa)=>s+pa.amount,0);const rv=p.contractValue;const sel=p.id===proj.id;
+          return<div key={p.id} onClick={()=>{setPid(p.id);setView("pa");setPaFilter("all");}} style={{padding:"11px 13px",borderRadius:"var(--r)",marginBottom:7,cursor:"pointer",border:sel?"1.5px solid var(--warn-bdr)":"0.5px solid var(--bdr)",background:sel?"var(--warn-bg)":"var(--bg)"}}>
+            <div style={{fontSize:13,fontWeight:600,color:sel?"var(--warn)":"var(--text)",marginBottom:3}}>{p.name}</div>
+            <div style={{fontSize:11,color:"var(--muted)",marginBottom:5,fontFamily:M}}>{f$(b)} / {f$(rv)}</div>
+            <Bar value={b} max={rv}/>
+          </div>;})}
+        <div style={{marginTop:18,paddingTop:14,borderTop:"0.5px solid var(--bdr)"}}>
+          <div style={{fontSize:10,color:"var(--muted)",marginBottom:9,fontFamily:M,letterSpacing:"0.07em",textTransform:"uppercase"}}>Totales globales</div>
+          {[["Contratos",projects.reduce((s,p)=>s+p.contractValue,0),"var(--text)"],["Facturado",projects.reduce((s,p)=>s+p.payApps.reduce((ss,pa)=>ss+pa.amount,0),0),"var(--warn)"],["Cobrado",projects.reduce((s,p)=>s+p.payApps.filter(pa=>pa.status==="Paid").reduce((ss,pa)=>ss+pa.amount,0),0),"var(--succ)"],["Por cobrar",projects.reduce((s,p)=>s+p.payApps.filter(pa=>pa.status==="Sent").reduce((ss,pa)=>ss+pa.amount,0),0),"var(--orng)"]].map(([l,v,c])=><div key={l} style={{display:"flex",justifyContent:"space-between",fontSize:11,marginBottom:6}}><span style={{color:"var(--muted)"}}>{l}</span><span style={{color:c,fontFamily:M,fontWeight:600}}>{f$(v)}</span></div>)}
+        </div>
+      </div>
+      <div style={{flex:1,minWidth:0}}>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(4,minmax(0,1fr))",gap:10,marginBottom:14}}>
+          <Kpi label="Contrato original" value={f$(proj.contractValue)}/>
+          <Kpi label="Contrato revisado" value={f$(revC)} color="var(--warn)" sub={incCOs>0?"+"+f$(incCOs)+" COs":undefined}/>
+          <Kpi label="Cobrado" value={f$(paidPA)} color="var(--succ)" sub={pct(paidPA,revC)+"% del contrato"}/>
+          <Kpi label="Por cobrar (Sent)" value={f$(sentPA)} color="var(--orng)" sub={"Sin facturar: "+f$(revC-totalPA)}/>
+        </div>
+
+        {/* FIX 2: type filter tabs with subtotals */}
+        <div style={{background:"var(--surf)",border:"0.5px solid var(--bdr)",borderRadius:"var(--r)",padding:"12px 14px",marginBottom:14}}>
+          <div style={{fontSize:11,color:"var(--muted)",fontFamily:M,marginBottom:9,letterSpacing:"0.04em"}}>Filtrar por tipo de factura</div>
+          <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+            {[["all","Todos",totalPA,"var(--warn)"],["labor","Labor / PAs",laborTotal,"var(--info)"],["reimb","Reembolsables",reimbTotal,"var(--teal)"]].map(([val,lbl,tot,c])=>(
+              <div key={val} onClick={()=>setPaFilter(val)} style={{padding:"8px 14px",borderRadius:"var(--r)",cursor:"pointer",border:paFilter===val?"1.5px solid "+c:"0.5px solid var(--bdrMd)",background:paFilter===val?"var(--surf)":"transparent",transition:"all 0.15s"}}>
+                <div style={{fontSize:11,color:"var(--muted)",marginBottom:3}}>{lbl}</div>
+                <div style={{fontSize:15,fontFamily:M,fontWeight:700,color:paFilter===val?c:"var(--muted)"}}>{f$(tot)}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div style={{display:"flex",gap:10,marginBottom:14,alignItems:"center",flexWrap:"wrap"}}>
+          <div style={{display:"flex",border:"0.5px solid var(--bdrMd)",borderRadius:"var(--r)",overflow:"hidden"}}>
+            {[["pa","Pay applications"],["co","Change orders"]].map(([v,l],i)=>(
+              <div key={v} onClick={()=>setView(v)} style={{padding:"7px 14px",cursor:"pointer",fontSize:12,fontFamily:M,background:view===v?"var(--warn-bg)":"transparent",color:view===v?"var(--warn)":"var(--muted)",fontWeight:view===v?600:400,borderRight:i===0?"0.5px solid var(--bdrMd)":"none",display:"flex",alignItems:"center",gap:6}}>
+                {l}{v==="co"&&proj.changeOrders.length>0&&<span style={{background:"var(--info-bg)",color:"var(--info)",borderRadius:10,padding:"1px 7px",fontSize:10,fontWeight:600}}>{proj.changeOrders.length}</span>}
+              </div>))}
+          </div>
+          {view==="pa"&&<input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Buscar invoice #, PA # o descripción..." style={{background:"var(--surf)",border:"0.5px solid var(--bdrMd)",color:"var(--text)",padding:"6px 11px",borderRadius:"var(--r)",fontSize:12,fontFamily:M,outline:"none",flex:1,minWidth:200}}/>}
+        </div>
+
+        {view==="pa"&&<Card>
+          <SHead title={"Pay applications — "+proj.name} action={isMaster&&<Btn v="amber" sm onClick={()=>setAddPA(!addPA)}>+ Nueva PA</Btn>}/>
+          {addPA&&isMaster&&<div style={{padding:"13px 15px",background:"#fffbf0",borderBottom:"1px solid var(--warn-bdr)"}}>
+            <div style={{background:"var(--info-bg)",border:"0.5px solid var(--info-bdr)",borderRadius:"var(--r)",padding:"8px 12px",fontSize:12,color:"var(--info)",marginBottom:10}}>🔢 Invoice # auto: <strong style={{fontFamily:M}}>{nextPANum(proj)}</strong></div>
+            <div style={{display:"grid",gridTemplateColumns:"2fr 1fr 1fr 1fr auto",gap:8,alignItems:"end"}}>
+              <Fld label="Descripción" value={paF.description} onChange={e=>setPaF({...paF,description:e.target.value})} placeholder="Invoice Labors — Semana..."/>
+              <Fld label="Monto ($)" type="number" value={paF.amount} onChange={e=>setPaF({...paF,amount:e.target.value})}/>
+              <Fld label="Fecha" type="date" value={paF.date} onChange={e=>setPaF({...paF,date:e.target.value})}/>
+              <Slct label="Status" value={paF.status} onChange={e=>setPaF({...paF,status:e.target.value})}><option>Draft</option><option>Sent</option><option>Paid</option></Slct>
+              <div style={{paddingBottom:10}}><Btn v="amber" onClick={doAddPA}>Agregar</Btn></div>
+            </div>
+          </div>}
+          <table style={{width:"100%",borderCollapse:"collapse"}}>
+            <thead><tr>{["#","Invoice #","Fecha","Descripción","Tipo","Monto","Status",""].map(h=><th key={h} style={TH}>{h}</th>)}</tr></thead>
+            <tbody>
+              {filtPAs.length===0?<tr><td colSpan={8}><Empty msg={search?"Sin resultados.":"Sin pay applications."}/></td></tr>
+              :filtPAs.map(pa=><tr key={pa.id} onMouseOver={e=>e.currentTarget.style.background="var(--surf)"} onMouseOut={e=>e.currentTarget.style.background=""}>
+                <td style={{...TD,fontFamily:M,color:"var(--warn)",fontSize:12,fontWeight:600}}>{pa.number}</td>
+                <td style={{...TD,fontFamily:M,fontSize:11,fontWeight:600,color:pa.isReimb?"var(--teal)":"var(--info)"}}>{pa.invNum||"—"}</td>
+                <td style={{...TD,fontFamily:M,fontSize:11,color:"var(--muted)"}}>{pa.date}</td>
+                <td style={{...TD,fontSize:12}}>{pa.description}</td>
+                <td style={TD}>{pa.isReimb?<Badge status="Reimb" label="Reembolsable"/>:<Badge status="Enviado" label="Labor PA"/>}</td>
+                <td style={{...TD,fontFamily:M,fontWeight:700,fontSize:14}}>{f$(pa.amount)}</td>
+                <td style={TD}><Badge status={pa.status} label={pa.status==="Paid"?"Cobrado":pa.status==="Sent"?"Por cobrar":pa.status}/></td>
+                <td style={TD}><div style={{display:"flex",gap:4}}>
+                  <Btn sm v="info" onClick={()=>openPrint(paInvoiceHTML(proj,pa))} title="Ver / Imprimir">🖨️</Btn>
+                  {pa.status==="Draft"&&isMaster&&<Btn sm v="amber" onClick={()=>updPA(pa.id,"Sent")}>Enviar</Btn>}
+                  {pa.status==="Sent"&&isMaster&&<Btn sm v="succ" onClick={()=>updPA(pa.id,"Paid")}>✓ Cobrado</Btn>}
+                  {pa.status==="Paid"&&isMaster&&<Btn sm v="orng" onClick={()=>updPA(pa.id,"Sent")}>Revertir</Btn>}
+                  {isMaster&&<Btn sm v="dngr" onClick={()=>delPA(pa.id)} style={{padding:"3px 7px"}}>×</Btn>}
+                </div></td>
+              </tr>)}
+            </tbody>
+            {proj.payApps.length>0&&<tfoot>
+              <tr style={{background:"var(--surf)"}}><td colSpan={5} style={{...TDF,textAlign:"right",fontFamily:M,fontSize:11,color:"var(--muted)",fontWeight:600}}>Total facturado</td><td style={{...TDF,fontFamily:M,fontWeight:700,color:"var(--warn)",fontSize:15}}>{f$(totalPA)}</td><td colSpan={2} style={TDF}/></tr>
+              <tr style={{background:"var(--succ-bg)"}}><td colSpan={5} style={{...TDF,textAlign:"right",fontFamily:M,fontSize:11,color:"var(--succ)",fontWeight:600}}>Cobrado (Paid)</td><td style={{...TDF,fontFamily:M,fontWeight:700,color:"var(--succ)",fontSize:15}}>{f$(paidPA)}</td><td colSpan={2} style={TDF}/></tr>
+              {sentPA>0&&<tr style={{background:"var(--orng-bg)"}}><td colSpan={5} style={{...TDF,textAlign:"right",fontFamily:M,fontSize:11,color:"var(--orng)",fontWeight:600}}>Por cobrar (Sent)</td><td style={{...TDF,fontFamily:M,fontWeight:700,color:"var(--orng)",fontSize:15}}>{f$(sentPA)}</td><td colSpan={2} style={TDF}/></tr>}
+              <tr style={{background:"var(--warn-bg)"}}><td colSpan={5} style={{...TDF,textAlign:"right",fontFamily:M,fontSize:11,color:"var(--warn)",fontWeight:600}}>Balance sin facturar</td><td style={{...TDF,fontFamily:M,fontWeight:700,color:"var(--warn)",fontSize:15}}>{f$(revC-totalPA)}</td><td colSpan={2} style={TDF}/></tr>
+            </tfoot>}
+          </table>
+
+          {/* FIX 2: subtotals by category */}
+          {proj.payApps.length>0&&<div style={{padding:"12px 15px",borderTop:"0.5px solid var(--bdr)",background:"var(--surf)",display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10}}>
+            {[["Labor / Pay Apps",laborTotal,"var(--info)"],["Reembolsables",reimbTotal,"var(--teal)"],["Change Orders",coTotal,"var(--purp)"]].map(([l,v,c])=><div key={l} style={{textAlign:"center"}}><div style={{fontSize:10,color:"var(--muted)",fontFamily:M,marginBottom:3}}>{l}</div><div style={{fontSize:16,fontWeight:700,fontFamily:M,color:c}}>{f$(v)}</div></div>)}
+          </div>}
+        </Card>}
+
+        {view==="co"&&<Card>
+          <SHead title={"Change orders — "+proj.name} action={isMaster&&<Btn v="info" sm onClick={()=>setAddCO(!addCO)}>+ Nuevo CO</Btn>}/>
+          {addCO&&isMaster&&<div style={{padding:"13px 15px",background:"#eff8ff",borderBottom:"1px solid var(--info-bdr)"}}>
+            <div style={{display:"grid",gridTemplateColumns:"2fr 1fr 1fr 1fr auto",gap:8,alignItems:"end"}}>
+              <Fld label="Descripción" value={coF.description} onChange={e=>setCoF({...coF,description:e.target.value})} placeholder="Obra adicional..."/>
+              <Fld label="Monto ($)" type="number" value={coF.amount} onChange={e=>setCoF({...coF,amount:e.target.value})}/>
+              <Fld label="Fecha" type="date" value={coF.date} onChange={e=>setCoF({...coF,date:e.target.value})}/>
+              <Slct label="Status" value={coF.status} onChange={e=>setCoF({...coF,status:e.target.value})}><option>Draft</option><option>Submitted</option><option>Approved</option><option>Rejected</option></Slct>
+              <div style={{paddingBottom:10}}><Btn v="info" onClick={doAddCO}>Agregar</Btn></div>
+            </div>
+            <div style={{display:"flex",alignItems:"center",gap:9,marginTop:5}}><Toggle on={coF.inContract} onClick={()=>setCoF({...coF,inContract:!coF.inContract})}/><span style={{fontSize:12,color:"var(--muted)"}}>Incluir en contrato revisado</span></div>
+          </div>}
+          <table style={{width:"100%",borderCollapse:"collapse"}}>
+            <thead><tr>{["#","Fecha","Descripción","Monto","Status","Al contrato","Acciones"].map(h=><th key={h} style={TH}>{h}</th>)}</tr></thead>
+            <tbody>
+              {proj.changeOrders.length===0?<tr><td colSpan={7}><Empty msg="Sin change orders."/></td></tr>
+              :proj.changeOrders.map(co=><tr key={co.id} onMouseOver={e=>e.currentTarget.style.background="var(--surf)"} onMouseOut={e=>e.currentTarget.style.background=""}>
+                <td style={{...TD,fontFamily:M,color:"var(--info)",fontSize:12,fontWeight:600}}>{co.number}</td>
+                <td style={{...TD,fontFamily:M,fontSize:11,color:"var(--muted)"}}>{co.date}</td>
+                <td style={TD}>{co.description}</td>
+                <td style={{...TD,fontFamily:M,fontWeight:600}}>{f$(co.amount)}</td>
+                <td style={TD}><Badge status={co.status}/></td>
+                <td style={TD}><div style={{display:"flex",alignItems:"center",gap:7}}><Toggle on={co.inContract} onClick={()=>isMaster&&updCO(co.id,{inContract:!co.inContract})}/><span style={{fontSize:10,color:co.inContract&&co.status==="Approved"?"var(--info)":"var(--muted)",fontFamily:M}}>{co.inContract&&co.status==="Approved"?"+ contrato":"sep."}</span></div></td>
+                <td style={TD}><div style={{display:"flex",gap:5}}>
+                  {co.status==="Draft"&&isMaster&&<Btn sm v="def" onClick={()=>updCO(co.id,{status:"Submitted"})}>Enviar</Btn>}
+                  {co.status==="Submitted"&&isMaster&&<><Btn sm v="succ" onClick={()=>updCO(co.id,{status:"Approved"})}>✓</Btn><Btn sm v="dngr" onClick={()=>updCO(co.id,{status:"Rejected"})}>✗</Btn></>}
+                </div></td>
+              </tr>)}
+            </tbody>
+            {proj.changeOrders.length>0&&<tfoot><tr style={{background:"var(--surf)"}}><td colSpan={3} style={{...TDF,textAlign:"right",fontFamily:M,fontSize:11,color:"var(--muted)",fontWeight:600}}>Total Change Orders</td><td style={{...TDF,fontFamily:M,fontWeight:700,color:"var(--purp)",fontSize:15}}>{f$(coTotal)}</td><td colSpan={3} style={TDF}/></tr></tfoot>}
+          </table>
+        </Card>}
+      </div>
+    </div>
+  );
+}
+
+/* ═══ REIMBURSABLES ═══ */
+const RCATS=["Materiales","Herramientas","Equipos rentados","Permisos / Fees","Transporte","Misceláneos"];
+function Reimbursables({projects,setProjects,reimb,setReimb,role}){
+  const[pid,setPid]=useState(projects[0]?.id);
+  const[selWeek,setSelWeek]=useState(getWeekStart(TODAY));
+  const[form,setForm]=useState({date:TODAY,description:"",category:"Materiales",amount:"",notes:""});
+  const[img,setImg]=useState(null);const[imgPrev,setImgPrev]=useState(null);
+  const[adding,setAdding]=useState(false);const[viewImg,setViewImg]=useState(null);
+  // FIX 1: invoice search
+  const[invSearch,setInvSearch]=useState("");
+  const[invView,setInvView]=useState("week"); // week | all
+  const fRef=useRef();
+  const isMaster=role==="master";
+  const proj=projects.find(p=>p.id===pid)||projects[0];
+  if(!proj)return<Empty msg="Sin proyectos."/>;
+  const pItems=reimb.filter(r=>r.projectId===proj.id);
+  const byWeek=useMemo(()=>{const m={};pItems.forEach(r=>{const ws=getWeekStart(r.date);if(!m[ws])m[ws]=[];m[ws].push(r);});return Object.entries(m).sort((a,b)=>b[0].localeCompare(a[0]));},[pItems]);
+  const wItems=pItems.filter(r=>getWeekStart(r.date)===selWeek);
+  const wTotal=wItems.reduce((s,r)=>s+r.amount,0);
+  const uninv=wItems.filter(r=>!r.invoiced);
+  const pTotal=pItems.reduce((s,r)=>s+r.amount,0);
+  const pInv=pItems.filter(r=>r.invoiced).reduce((s,r)=>s+r.amount,0);
+
+  // FIX 1: all invoices list (for search/reprint)
+  const allInvoices=useMemo(()=>{
+    const invMap={};
+    pItems.filter(r=>r.invoiced&&r.invoiceNum).forEach(r=>{
+      if(!invMap[r.invoiceNum])invMap[r.invoiceNum]={invNum:r.invoiceNum,items:[],weekStart:"",weekEnd:""};
+      invMap[r.invoiceNum].items.push(r);
+    });
+    return Object.values(invMap).map(inv=>{
+      const dates=inv.items.map(i=>i.date).sort();
+      inv.weekStart=getWeekStart(dates[0]);
+      inv.weekEnd=addDays(inv.weekStart,5);
+      inv.total=inv.items.reduce((s,i)=>s+i.amount,0);
+      return inv;
+    }).sort((a,b)=>b.invNum.localeCompare(a.invNum));
+  },[pItems]);
+
+  const filtInvoices=invSearch?allInvoices.filter(inv=>inv.invNum.toLowerCase().includes(invSearch.toLowerCase())):allInvoices;
+
+  const handleFile=e=>{const f=e.target.files[0];if(!f)return;if(f.size>5*1024*1024){alert("Imagen muy grande.");return;}const rd=new FileReader();rd.onload=ev=>{setImg(ev.target.result);setImgPrev(ev.target.result);};rd.readAsDataURL(f);};
+  const save=()=>{if(!form.description||!form.amount)return;setReimb([...reimb,{id:Date.now(),projectId:proj.id,date:form.date,description:form.description,category:form.category,amount:+form.amount,notes:form.notes,receipt:img,invoiced:false,invoiceNum:""}]);setForm({date:TODAY,description:"",category:"Materiales",amount:"",notes:""});setImg(null);setImgPrev(null);if(fRef.current)fRef.current.value="";setAdding(false);};
+
+  const genInvoice=()=>{
+    if(!uninv.length){alert("Todos los gastos de esta semana ya fueron facturados.");return;}
+    if(!proj.client){alert("Agrega el nombre del cliente en Configuración → Proyectos → Editar.");return;}
+    const weekEnd=addDays(selWeek,5);
+    const seq=(proj.reimbSeq||0)+1;
+    const invNum=nextReimbNum(proj);
+    const totalAmt=uninv.reduce((s,r)=>s+r.amount,0);
+    setReimb(reimb.map(r=>uninv.some(u=>u.id===r.id)?{...r,invoiced:true,invoiceNum:invNum}:r));
+    setProjects(projects.map(p=>{
+      if(p.id!==proj.id)return p;
+      const newPA={id:Date.now(),number:"PA-"+String(p.payApps.length+1).padStart(3,"0"),invNum,description:"Reimbursable Materials — "+selWeek+" al "+weekEnd,amount:totalAmt,date:weekEnd,status:"Sent",isReimb:true};
+      return{...p,reimbSeq:seq,payApps:[...p.payApps,newPA]};
+    }));
+    openPrint(reimbInvoiceHTML(proj,uninv,selWeek,weekEnd,invNum));
+  };
+
+  // FIX 1: reprint existing invoice
+  const reprintInvoice=(inv)=>{
+    openPrint(reimbInvoiceHTML(proj,inv.items,inv.weekStart,inv.weekEnd,inv.invNum));
+  };
+
+  return(
+    <div style={{display:"flex",gap:18}}>
+      <div style={{width:220,flexShrink:0}}>
+        <div style={{fontSize:10,color:"var(--muted)",marginBottom:9,fontFamily:M,letterSpacing:"0.07em",textTransform:"uppercase"}}>Proyectos</div>
+        {projects.map(p=>{const tot=reimb.filter(r=>r.projectId===p.id).reduce((s,r)=>s+r.amount,0);const pend=reimb.filter(r=>r.projectId===p.id&&!r.invoiced).reduce((s,r)=>s+r.amount,0);const sel=p.id===proj.id;
+          return<div key={p.id} onClick={()=>setPid(p.id)} style={{padding:"11px 13px",borderRadius:"var(--r)",marginBottom:7,cursor:"pointer",border:sel?"1.5px solid var(--orng-bdr)":"0.5px solid var(--bdr)",background:sel?"var(--orng-bg)":"var(--bg)"}}>
+            <div style={{fontSize:13,fontWeight:600,color:sel?"var(--orng)":"var(--text)",marginBottom:4}}>{p.name}</div>
+            <div style={{fontSize:11,fontFamily:M,marginBottom:2}}>Total: <strong style={{color:"var(--orng)"}}>{f$(tot)}</strong></div>
+            {pend>0&&<div style={{fontSize:10,color:"var(--warn)",fontFamily:M}}>Sin facturar: {f$(pend)}</div>}
+          </div>;})}
+        {byWeek.length>0&&<div style={{marginTop:16,paddingTop:14,borderTop:"0.5px solid var(--bdr)"}}>
+          <div style={{fontSize:10,color:"var(--muted)",marginBottom:9,fontFamily:M,letterSpacing:"0.07em",textTransform:"uppercase"}}>Semanas</div>
+          {byWeek.map(([ws,items])=>{const tot=items.reduce((s,i)=>s+i.amount,0);const inv=items.every(i=>i.invoiced);const sel=ws===selWeek&&invView==="week";
+            return<div key={ws} onClick={()=>{setSelWeek(ws);setInvView("week");}} style={{padding:"9px 12px",borderRadius:"var(--r)",marginBottom:6,cursor:"pointer",border:sel?"1.5px solid var(--orng-bdr)":"0.5px solid var(--bdr)",background:sel?"var(--orng-bg)":"var(--bg)"}}>
+              <div style={{fontSize:11,fontFamily:M,color:sel?"var(--orng)":"var(--muted)",marginBottom:3}}>{ws}</div>
+              <div style={{fontSize:13,fontFamily:M,fontWeight:700,color:"var(--orng)"}}>{f$(tot)}</div>
+              <div style={{marginTop:4}}>{inv?<Badge status="Invoiced" label="Facturado ✓"/>:<Badge status="PendInv" label="Sin facturar"/>}</div>
+            </div>;})}
+        </div>}
+      </div>
+      <div style={{flex:1,minWidth:0}}>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(3,minmax(0,1fr))",gap:10,marginBottom:14}}>
+          <Kpi label={"Total — "+proj.name} value={f$(pTotal)} color="var(--orng)"/>
+          <Kpi label="Facturado" value={f$(pInv)} color="var(--succ)" sub={pInv>0?pct(pInv,pTotal)+"% del total":undefined}/>
+          <Kpi label="Pendiente de facturar" value={f$(pTotal-pInv)} color="var(--warn)"/>
+        </div>
+        {!proj.client&&<div style={{background:"var(--warn-bg)",border:"1px solid var(--warn-bdr)",borderRadius:"var(--r)",padding:"10px 14px",marginBottom:14,fontSize:12,color:"var(--warn)"}}>⚠️ Para generar invoices agrega los datos del cliente en Configuración → Proyectos → Editar</div>}
+
+        {/* Sub-tabs: week view vs invoice history */}
+        <div style={{display:"flex",border:"0.5px solid var(--bdrMd)",borderRadius:"var(--r)",overflow:"hidden",width:"fit-content",marginBottom:14}}>
+          {[["week","Gastos por semana"],["invoices","Historial de invoices"]].map(([v,l],i)=>(
+            <div key={v} onClick={()=>setInvView(v)} style={{padding:"7px 14px",cursor:"pointer",fontSize:12,fontFamily:M,background:invView===v?"var(--orng-bg)":"transparent",color:invView===v?"var(--orng)":"var(--muted)",fontWeight:invView===v?600:400,borderRight:i===0?"0.5px solid var(--bdrMd)":"none",display:"flex",alignItems:"center",gap:6}}>
+              {l}{v==="invoices"&&allInvoices.length>0&&<span style={{background:"var(--succ-bg)",color:"var(--succ)",borderRadius:10,padding:"1px 7px",fontSize:10,fontWeight:600}}>{allInvoices.length}</span>}
+            </div>))}
+        </div>
+
+        {/* WEEK VIEW */}
+        {invView==="week"&&<>
+          <div style={{display:"flex",gap:10,alignItems:"flex-end",marginBottom:14,flexWrap:"wrap"}}>
+            <div><div style={{fontSize:11,color:"var(--muted)",fontFamily:M,marginBottom:4}}>Ver semana</div><input type="date" value={selWeek} onChange={e=>setSelWeek(getWeekStart(e.target.value))} style={{background:"var(--surf)",border:"0.5px solid var(--bdrMd)",color:"var(--text)",padding:"7px 10px",borderRadius:"var(--r)",fontSize:13,fontFamily:M,outline:"none"}}/></div>
+            <div style={{fontSize:12,color:"var(--muted)",fontFamily:M,alignSelf:"center",marginTop:18}}>{selWeek} — {addDays(selWeek,5)}</div>
+            <div style={{flex:1}}/>
+            <Btn v="orng" sm onClick={()=>setAdding(!adding)}>+ Agregar gasto</Btn>
+            {uninv.length>0&&<Btn v="amber" onClick={genInvoice}>🧾 Generar Invoice — {f$(uninv.reduce((s,r)=>s+r.amount,0))}</Btn>}
+          </div>
+          {adding&&<Card style={{marginBottom:14}}>
+            <SHead title={"Agregar gasto reembolsable — "+proj.name}/>
+            <div style={{padding:"14px 15px",background:"var(--orng-bg)"}}>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:8}}>
+                <Fld label="Fecha" type="date" value={form.date} onChange={e=>setForm({...form,date:e.target.value})}/>
+                <Slct label="Categoría" value={form.category} onChange={e=>setForm({...form,category:e.target.value})}>{RCATS.map(c=><option key={c}>{c}</option>)}</Slct>
+                <Fld label="Monto ($)" type="number" value={form.amount} onChange={e=>setForm({...form,amount:e.target.value})} placeholder="0.00"/>
+              </div>
+              <Fld label="Descripción" value={form.description} onChange={e=>setForm({...form,description:e.target.value})} placeholder="Ej: Bloques concreto — Home Depot, 200 uds"/>
+              <Fld label="Proveedor / notas" value={form.notes} onChange={e=>setForm({...form,notes:e.target.value})} placeholder="Proveedor, # recibo..."/>
+              <div style={{marginBottom:12}}><div style={{fontSize:11,color:"var(--muted)",marginBottom:5,fontFamily:M}}>Foto del recibo</div><div style={{display:"flex",gap:10,alignItems:"center"}}><input ref={fRef} type="file" accept="image/*" capture="environment" onChange={handleFile} style={{fontSize:12,color:"var(--text)"}}/>{imgPrev&&<div style={{position:"relative"}}><img src={imgPrev} alt="p" style={{width:64,height:64,objectFit:"cover",borderRadius:"var(--r)",border:"2px solid var(--orng-bdr)"}}/><button onClick={()=>{setImg(null);setImgPrev(null);if(fRef.current)fRef.current.value="";}} style={{position:"absolute",top:-6,right:-6,background:"var(--dngr-bg)",color:"var(--dngr)",border:"none",borderRadius:"50%",width:18,height:18,cursor:"pointer",fontSize:12,fontWeight:700}}>×</button></div>}</div></div>
+              <div style={{display:"flex",gap:8}}><Btn v="orng" onClick={save}>Guardar</Btn><Btn v="def" onClick={()=>{setAdding(false);setImg(null);setImgPrev(null);}}>Cancelar</Btn></div>
+            </div>
+          </Card>}
+          <Card>
+            <SHead title={"Semana "+selWeek+" — "+addDays(selWeek,5)} action={wItems.length>0&&<span style={{fontSize:12,fontFamily:M,fontWeight:600,color:"var(--orng)"}}>{wItems.length} ítems · {f$(wTotal)}</span>}/>
+            {wItems.length===0?<Empty msg="Sin gastos para esta semana."/>:<>
+            <table style={{width:"100%",borderCollapse:"collapse"}}>
+              <thead><tr>{["Fecha","Categoría","Descripción","Monto","Recibo","Estado"].map(h=><th key={h} style={TH}>{h}</th>)}</tr></thead>
+              <tbody>{wItems.sort((a,b)=>a.date.localeCompare(b.date)).map(r=><tr key={r.id} style={{opacity:r.invoiced?0.8:1}} onMouseOver={e=>e.currentTarget.style.background="var(--surf)"} onMouseOut={e=>e.currentTarget.style.background=""}>
+                <td style={{...TD,fontFamily:M,fontSize:11,color:"var(--muted)"}}>{r.date}</td>
+                <td style={TD}><span style={{background:"var(--orng-bg)",color:"var(--orng)",padding:"2px 8px",borderRadius:"var(--r)",fontSize:11,fontFamily:M,fontWeight:600}}>{r.category}</span></td>
+                <td style={TD}><div style={{fontSize:12,fontWeight:500}}>{r.description}</div>{r.notes&&<div style={{fontSize:11,color:"var(--muted)",marginTop:2}}>{r.notes}</div>}</td>
+                <td style={{...TD,fontFamily:M,fontWeight:700,color:"var(--orng)",fontSize:14}}>{f$(r.amount)}</td>
+                <td style={TD}>{r.receipt?<img src={r.receipt} alt="r" onClick={()=>setViewImg(r.receipt)} style={{width:44,height:44,objectFit:"cover",borderRadius:"var(--r)",cursor:"pointer",border:"2px solid var(--orng-bdr)"}}/>:<span style={{fontSize:11,color:"var(--muted)",fontStyle:"italic"}}>Sin foto</span>}</td>
+                <td style={TD}>{r.invoiced?<div><Badge status="Invoiced" label="Facturado ✓"/><div style={{fontSize:10,color:"var(--muted)",fontFamily:M,marginTop:3}}>{r.invoiceNum}</div></div>:<Badge status="PendInv" label="Pendiente"/>}</td>
+              </tr>)}
+              </tbody>
+              <tfoot><tr style={{background:"var(--orng-bg)"}}><td colSpan={3} style={{...TDF,textAlign:"right",fontFamily:M,fontSize:12,color:"var(--orng)",fontWeight:600}}>TOTAL SEMANA</td><td style={{...TDF,fontFamily:M,fontWeight:700,fontSize:16,color:"var(--orng)"}}>{f$(wTotal)}</td><td colSpan={2} style={TDF}/></tr></tfoot>
+            </table>
+            {uninv.length>0&&<div style={{padding:"12px 15px",background:"#fff7ed",borderTop:"1px solid var(--orng-bdr)",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <div><div style={{fontSize:13,fontWeight:600,color:"var(--orng)"}}>🧾 {uninv.length} gasto{uninv.length!==1?"s":""} sin facturar — {f$(uninv.reduce((s,r)=>s+r.amount,0))}</div><div style={{fontSize:11,color:"var(--muted)",marginTop:2}}>Al generar se crea automáticamente una PA en PayApps</div></div>
+              <Btn v="orng" onClick={genInvoice}>Generar Invoice →</Btn>
+            </div>}
+            </>}
+          </Card>
+        </>}
+
+        {/* FIX 1: INVOICE HISTORY with search and reprint */}
+        {invView==="invoices"&&<Card>
+          <SHead title={"Historial de invoices reembolsables — "+proj.name} action={
+            <input value={invSearch} onChange={e=>setInvSearch(e.target.value)} placeholder="Buscar por # de invoice..." style={{background:"var(--surf)",border:"0.5px solid var(--bdrMd)",color:"var(--text)",padding:"5px 10px",borderRadius:"var(--r)",fontSize:12,fontFamily:M,outline:"none",width:220}}/>
+          }/>
+          {filtInvoices.length===0?<Empty msg={invSearch?"Sin resultados para esa búsqueda.":"Sin invoices generados aún."}/>:
+          <table style={{width:"100%",borderCollapse:"collapse"}}>
+            <thead><tr>{["Invoice #","Semana","Ítems","Total",""].map(h=><th key={h} style={TH}>{h}</th>)}</tr></thead>
+            <tbody>{filtInvoices.map(inv=><tr key={inv.invNum} onMouseOver={e=>e.currentTarget.style.background="var(--surf)"} onMouseOut={e=>e.currentTarget.style.background=""}>
+              <td style={{...TD,fontFamily:M,fontWeight:700,color:"var(--orng)",fontSize:13}}>{inv.invNum}</td>
+              <td style={{...TD,fontFamily:M,fontSize:11,color:"var(--muted)"}}>{inv.weekStart} — {inv.weekEnd}</td>
+              <td style={{...TD,fontSize:12}}>{inv.items.map(i=><div key={i.id} style={{marginBottom:2}}><span style={{color:"var(--muted)",fontSize:11}}>{i.date}</span> — {i.description} <span style={{fontFamily:M,fontWeight:600,color:"var(--orng)"}}>{f$(i.amount)}</span></div>)}</td>
+              <td style={{...TD,fontFamily:M,fontWeight:700,color:"var(--orng)",fontSize:15}}>{f$(inv.total)}</td>
+              <td style={TD}>
+                {/* FIX 1: Reprint button always available */}
+                <Btn sm v="orng" onClick={()=>reprintInvoice(inv)}>🖨️ Ver / Reimprimir</Btn>
+              </td>
+            </tr>)}
+            </tbody>
+            <tfoot><tr style={{background:"var(--orng-bg)"}}><td colSpan={3} style={{...TDF,textAlign:"right",fontFamily:M,fontSize:12,color:"var(--orng)",fontWeight:600}}>TOTAL FACTURADO REEMBOLSABLES</td><td style={{...TDF,fontFamily:M,fontWeight:700,fontSize:15,color:"var(--orng)"}}>{f$(filtInvoices.reduce((s,i)=>s+i.total,0))}</td><td style={TDF}/></tr></tfoot>
+          </table>}
+        </Card>}
+      </div>
+      {viewImg&&<div onClick={()=>setViewImg(null)} style={{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.88)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:9998,cursor:"pointer"}}><div style={{position:"relative"}}><img src={viewImg} alt="r" style={{maxWidth:"90vw",maxHeight:"90vh",borderRadius:"var(--r)"}}/><button onClick={()=>setViewImg(null)} style={{position:"absolute",top:-12,right:-12,background:"var(--dngr-bg)",color:"var(--dngr)",border:"1px solid var(--dngr-bdr)",borderRadius:"50%",width:28,height:28,cursor:"pointer",fontSize:16,fontWeight:700}}>×</button></div></div>}
+    </div>
+  );
+}
+
+/* ═══ ESTIMATES ═══ */
+function Estimates({estimates,setEstimates,role}){
+  const[eid,setEid]=useState(estimates[0]?.id);
+  const[ni,setNi]=useState({description:"",qty:1,unit:"LS",unitPrice:0});
+  const[nInc,setNInc]=useState("");const[nExc,setNExc]=useState("");
+  const[search,setSearch]=useState("");
+  const isMaster=role==="master";
+  const est=estimates.find(e=>e.id===eid)||estimates[0];
+  const total=est?.lineItems.reduce((s,i)=>s+i.total,0)||0;
+  const upd=fn=>setEstimates(estimates.map(e=>e.id!==est?.id?e:fn(e)));
+  const addItem=()=>{if(!ni.description)return;upd(e=>({...e,lineItems:[...e.lineItems,{id:Date.now(),...ni,qty:+ni.qty,unitPrice:+ni.unitPrice,total:+ni.qty*+ni.unitPrice}]}));setNi({description:"",qty:1,unit:"LS",unitPrice:0});};
+  const newEst=()=>{const n={id:Date.now(),number:nextEstNum(estimates),status:"Draft",sentDate:"",followUpDate:"",client:{name:"",contact:"",email:"",phone:""},projectName:"",lineItems:[],inclusions:[],exclusions:[],notes:""};setEstimates([...estimates,n]);setEid(n.id);};
+  const dupEst=(e)=>{const n={...JSON.parse(JSON.stringify(e)),id:Date.now(),number:nextEstNum(estimates),status:"Draft",sentDate:"",followUpDate:""};setEstimates(prev=>[...prev,n]);setEid(n.id);};
+  const filteredEsts=search?estimates.filter(e=>e.number.toLowerCase().includes(search.toLowerCase())||e.projectName.toLowerCase().includes(search.toLowerCase())||(e.client.name||"").toLowerCase().includes(search.toLowerCase())):estimates;
+  if(!est&&estimates.length===0)return<div style={{textAlign:"center",padding:60}}>{isMaster&&<Btn v="amber" onClick={newEst}>+ Crear primer presupuesto</Btn>}</div>;
+  return(
+    <div style={{display:"flex",gap:18}}>
+      <div style={{width:240,flexShrink:0}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:9}}>
+          <span style={{fontSize:10,color:"var(--muted)",fontFamily:M,letterSpacing:"0.07em",textTransform:"uppercase"}}>Presupuestos</span>
+          {isMaster&&<Btn v="amber" sm onClick={newEst}>+ Nuevo</Btn>}
+        </div>
+        <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Buscar # o proyecto..." style={{background:"var(--surf)",border:"0.5px solid var(--bdrMd)",color:"var(--text)",padding:"6px 10px",borderRadius:"var(--r)",width:"100%",fontSize:12,fontFamily:M,outline:"none",marginBottom:9}}/>
+        {filteredEsts.length===0?<div style={{fontSize:12,color:"var(--muted)",fontStyle:"italic",padding:"10px 0"}}>Sin resultados.</div>
+        :filteredEsts.map(e=>{const val=e.lineItems.reduce((s,i)=>s+i.total,0);const sel=e.id===(est?.id);return<div key={e.id} onClick={()=>setEid(e.id)} style={{padding:"11px 13px",borderRadius:"var(--r)",marginBottom:7,cursor:"pointer",border:sel?"1.5px solid var(--warn-bdr)":"0.5px solid var(--bdr)",background:sel?"var(--warn-bg)":"var(--bg)"}}>
+          <div style={{display:"flex",justifyContent:"space-between",marginBottom:5}}><span style={{fontSize:11,fontFamily:M,color:sel?"var(--warn)":"var(--muted)",fontWeight:600}}>{e.number}</span><Badge status={e.status}/></div>
+          <div style={{fontSize:13,fontWeight:600,marginBottom:2}}>{e.projectName||<em style={{color:"var(--muted)",fontWeight:400,fontSize:12}}>Sin nombre</em>}</div>
+          <div style={{fontSize:11,color:"var(--muted)",marginBottom:5}}>{e.client.name||"—"}</div>
+          <div style={{fontSize:14,fontFamily:M,color:"var(--warn)",fontWeight:700}}>{f$(val)}</div>
+        </div>;})}
+      </div>
+      {est&&<div style={{flex:1,minWidth:0}}>
+        <Card style={{padding:18,marginBottom:13}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+            <div style={{flex:1,marginRight:18}}>
+              <div style={{display:"flex",alignItems:"center",gap:11,marginBottom:6}}><span style={{fontFamily:M,fontSize:13,color:"var(--warn)",fontWeight:600}}>{est.number}</span><Badge status={est.status}/></div>
+              <input value={est.projectName} onChange={e=>isMaster&&upd(em=>({...em,projectName:e.target.value}))} placeholder="Nombre del proyecto..." readOnly={!isMaster} style={{fontSize:19,fontWeight:700,background:"transparent",border:"none",color:"var(--text)",outline:"none",width:"100%",marginBottom:8,borderBottom:"1px dashed var(--bdrMd)"}}/>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+                <Fld label="Fecha de envío" type="date" value={est.sentDate||""} onChange={e=>isMaster&&upd(em=>({...em,sentDate:e.target.value}))} readOnly={!isMaster} style={{marginBottom:0}}/>
+                <Fld label="Seguimiento" type="date" value={est.followUpDate||""} onChange={e=>isMaster&&upd(em=>({...em,followUpDate:e.target.value}))} readOnly={!isMaster} style={{marginBottom:0}}/>
+              </div>
+            </div>
+            <div style={{textAlign:"right",flexShrink:0}}>
+              <div style={{fontSize:26,fontWeight:700,fontFamily:M,color:"var(--warn)"}}>{f$(total)}</div>
+              <div style={{fontSize:11,color:"var(--muted)",marginBottom:10}}>Total presupuesto</div>
+              <div style={{display:"flex",gap:7,justifyContent:"flex-end",flexWrap:"wrap"}}>
+                <Btn sm v="info" onClick={()=>openPrint(estimateHTML(est))}>🖨️ PDF</Btn>
+                {isMaster&&<Btn sm v="purp" onClick={()=>dupEst(est)}>Duplicar</Btn>}
+                {est.status==="Draft"&&isMaster&&<Btn sm v="amber" onClick={()=>upd(e=>({...e,status:"Sent",sentDate:e.sentDate||TODAY}))}>Marcar Enviado</Btn>}
+                {est.status!=="Approved"&&isMaster&&<Btn sm v="succ" onClick={()=>upd(e=>({...e,status:"Approved"}))}>Marcar Aprobado</Btn>}
+              </div>
+            </div>
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(4,minmax(0,1fr))",gap:12,marginTop:16,paddingTop:16,borderTop:"0.5px solid var(--bdr)"}}>
+            {[["Cliente","name"],["Contacto","contact"],["Email","email"],["Teléfono","phone"]].map(([l,k])=>(
+              <div key={k}><div style={{fontSize:10,color:"var(--muted)",fontFamily:M,marginBottom:3,textTransform:"uppercase",letterSpacing:"0.05em"}}>{l}</div>
+              <input value={est.client[k]||""} onChange={e=>isMaster&&upd(em=>({...em,client:{...em.client,[k]:e.target.value}}))} readOnly={!isMaster} placeholder="—" style={{fontSize:13,background:"transparent",border:"none",color:"var(--text)",outline:"none",width:"100%",borderBottom:"1px dashed var(--bdrMd)",paddingBottom:2}}/></div>
+            ))}
+          </div>
+        </Card>
+        <Card style={{marginBottom:13}}>
+          <SHead title="Líneas de trabajo"/>
+          <table style={{width:"100%",borderCollapse:"collapse"}}>
+            <thead><tr>{["Descripción","Cant.","Unidad","P. Unitario","Total",""].map(h=><th key={h} style={TH}>{h}</th>)}</tr></thead>
+            <tbody>
+              {est.lineItems.length===0&&<tr><td colSpan={6}><Empty msg="Sin líneas."/></td></tr>}
+              {est.lineItems.map(item=><tr key={item.id} onMouseOver={e=>e.currentTarget.style.background="var(--surf)"} onMouseOut={e=>e.currentTarget.style.background=""}><td style={TD}>{item.description}</td><td style={{...TD,fontFamily:M,fontSize:12,color:"var(--muted)"}}>{item.qty}</td><td style={{...TD,fontFamily:M,fontSize:12,color:"var(--muted)"}}>{item.unit}</td><td style={{...TD,fontFamily:M,fontSize:12}}>{f$(item.unitPrice)}</td><td style={{...TD,fontFamily:M,fontWeight:700,color:"var(--warn)"}}>{f$(item.total)}</td><td style={TD}>{isMaster&&<Btn sm v="dngr" onClick={()=>upd(e=>({...e,lineItems:e.lineItems.filter(i=>i.id!==item.id)}))}>×</Btn>}</td></tr>)}
+              {isMaster&&<tr style={{background:"#fffbf0"}}><td style={{...TDF,padding:"8px 12px"}}><input value={ni.description} onChange={e=>setNi({...ni,description:e.target.value})} onKeyDown={e=>e.key==="Enter"&&addItem()} placeholder="Descripción..." style={{background:"white",border:"0.5px solid var(--bdrMd)",color:"var(--text)",padding:"5px 9px",borderRadius:"var(--r)",width:"100%",fontSize:12,fontFamily:M,outline:"none",boxSizing:"border-box"}}/></td><td style={{...TDF,padding:"8px 6px"}}><input type="number" value={ni.qty} onChange={e=>setNi({...ni,qty:e.target.value})} style={{background:"white",border:"0.5px solid var(--bdrMd)",color:"var(--text)",padding:"5px 7px",borderRadius:"var(--r)",width:58,fontSize:12,fontFamily:M,outline:"none"}}/></td><td style={{...TDF,padding:"8px 6px"}}><select value={ni.unit} onChange={e=>setNi({...ni,unit:e.target.value})} style={{background:"white",border:"0.5px solid var(--bdrMd)",color:"var(--text)",padding:"5px 7px",borderRadius:"var(--r)",fontSize:12,fontFamily:M,outline:"none"}}>{["LS","SF","LF","EA","CY","SY","HR"].map(u=><option key={u}>{u}</option>)}</select></td><td style={{...TDF,padding:"8px 6px"}}><input type="number" value={ni.unitPrice} onChange={e=>setNi({...ni,unitPrice:e.target.value})} style={{background:"white",border:"0.5px solid var(--bdrMd)",color:"var(--text)",padding:"5px 7px",borderRadius:"var(--r)",width:88,fontSize:12,fontFamily:M,outline:"none"}}/></td><td style={{...TDF,fontFamily:M,fontSize:12,color:"var(--warn)",padding:"8px 12px",fontWeight:600}}>{f$(+ni.qty*+ni.unitPrice)}</td><td style={{...TDF,padding:"8px 12px"}}><Btn sm v="amber" onClick={addItem}>+</Btn></td></tr>}
+            </tbody>
+            <tfoot><tr style={{background:"var(--surf)"}}><td colSpan={4} style={{...TDF,textAlign:"right",fontFamily:M,fontSize:12,color:"var(--muted)",fontWeight:600}}>TOTAL</td><td style={{...TDF,fontFamily:M,fontWeight:700,color:"var(--warn)",fontSize:15}}>{f$(total)}</td><td style={TDF}/></tr></tfoot>
+          </table>
+        </Card>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:13,marginBottom:13}}>
+          {[["Inclusiones","var(--succ)","+",nInc,setNInc,()=>{if(nInc.trim()){upd(e=>({...e,inclusions:[...e.inclusions,nInc.trim()]}));setNInc("");}},est.inclusions,"inclusions"],["Exclusiones","var(--dngr)","−",nExc,setNExc,()=>{if(nExc.trim()){upd(e=>({...e,exclusions:[...e.exclusions,nExc.trim()]}));setNExc("");}},est.exclusions,"exclusions"]].map(([lbl,color,sym,nv,setNv,addFn,items,field])=>(
+            <Card key={field}><SHead title={<span style={{color}}>{lbl}</span>}/><div style={{padding:14}}>
+              {items.map((item,i)=><div key={i} style={{display:"flex",gap:9,marginBottom:7,alignItems:"flex-start"}}><span style={{color,fontSize:13,fontWeight:700}}>{sym}</span><span style={{fontSize:13,flex:1}}>{item}</span>{isMaster&&<Btn sm v="dngr" onClick={()=>upd(e=>({...e,[field]:e[field].filter((_,idx)=>idx!==i)}))} style={{padding:"1px 6px"}}>×</Btn>}</div>)}
+              {isMaster&&<div style={{display:"flex",gap:7,marginTop:4}}><input value={nv} onChange={e=>setNv(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addFn()} placeholder="Agregar..." style={{background:"var(--surf)",border:"0.5px solid var(--bdrMd)",color:"var(--text)",padding:"6px 10px",borderRadius:"var(--r)",flex:1,fontSize:12,fontFamily:M,outline:"none"}}/><Btn sm v={field==="inclusions"?"succ":"dngr"} onClick={addFn}>+</Btn></div>}
+            </div></Card>))}
+        </div>
+        <Card><SHead title="Notas internas"/><textarea value={est.notes} onChange={e=>isMaster&&upd(em=>({...em,notes:e.target.value}))} readOnly={!isMaster} placeholder="Notas..." style={{width:"100%",background:"transparent",border:"none",color:"var(--text)",padding:"13px 15px",fontSize:13,fontFamily:M,outline:"none",resize:"vertical",minHeight:80,boxSizing:"border-box"}}/></Card>
+      </div>}
+    </div>
+  );
+}
+
+/* ═══ PERSONNEL ═══ */
+function Personnel({projects,workers,setWorkers,pending,setPending,timeEntries,setTimeEntries,role,addToast}){
+  const[fpid,setFpid]=useState(projects[0]?.id);
+  const[selWids,setSelWids]=useState([]);const[entryDate,setEntryDate]=useState(TODAY);const[clockIn,setClockIn]=useState("07:00");const[clockOut,setClockOut]=useState("");const[deadMins,setDeadMins]=useState(0);
+  const[filterPid,setFilterPid]=useState("all");const[weekDate,setWeekDate]=useState(TODAY);const[payDate,setPayDate]=useState(getThursdayStart(TODAY));const[subTab,setSubTab]=useState("clock");
+  const[newWForm,setNewWForm]=useState({name:"",role:"Ayudante",notes:""});const[addingNW,setAddingNW]=useState(false);const[apprData,setApprData]=useState({});
+  const isMaster=role==="master";
+  const h=calcH(clockIn,clockOut,deadMins||0);
+  const allDayMap=useMemo(()=>{const m={};timeEntries.forEach(e=>{if(e.date===entryDate)m[e.workerId]=e.projectId;});return m;},[timeEntries,entryDate]);
+  const getSt=(wid,pid)=>{const a=allDayMap[wid];return!a?"available":a===pid?"active":"unavailable";};
+  const addEntry=()=>{if(!selWids.length||!fpid||!clockIn)return;const newEntries=[];for(const wid of selWids){const existing=timeEntries.find(e=>e.workerId===wid&&e.date===entryDate&&e.projectId!==fpid);if(existing){const wp=projects.find(p=>p.id===existing.projectId);alert((workers.find(w=>w.id===wid)?.name||"")+" ya tiene registro en '"+(wp?.name||"otro proyecto")+"' para este día. Omitido.");continue;}newEntries.push({id:Date.now()+Math.random(),projectId:fpid,workerId:wid,date:entryDate,clockIn,clockOut,hours:h>0?h:0,deadMins:deadMins||0});}if(newEntries.length){setTimeEntries(prev=>[...prev,...newEntries]);addToast("✅ "+newEntries.length+" entrada"+(newEntries.length!==1?"s":"")+" registrada"+(newEntries.length!==1?"s":"")+" correctamente.","succ");}setSelWids([]);setClockOut("");setDeadMins(0);};
+  const closeEntry=(eid,out)=>{const ci=timeEntries.find(e=>e.id===eid)?.clockIn||"";const dm=timeEntries.find(e=>e.id===eid)?.deadMins||0;const hh=calcH(ci,out,dm);setTimeEntries(timeEntries.map(e=>e.id===eid?{...e,clockOut:out,hours:hh>0?hh:0}:e));};
+  // FIX 1: only master can delete time entries
+  const delEntry=id=>{if(!isMaster)return;if(confirm("¿Eliminar?"))setTimeEntries(timeEntries.filter(e=>e.id!==id));};
+  const propose=()=>{if(!newWForm.name.trim())return;setPending([...pending,{id:Date.now(),name:newWForm.name.trim(),role:newWForm.role,notes:newWForm.notes,date:TODAY}]);setNewWForm({name:"",role:"Ayudante",notes:""});setAddingNW(false);addToast("✅ Solicitud enviada para "+newWForm.name,"succ");};
+  const setAD=(id,f,v)=>setApprData(p=>({...p,[id]:{...p[id],[f]:v}}));
+  const approve=(pwid,payType,rate)=>{const pw=pending.find(w=>w.id===pwid);if(!pw||!rate)return;const nw={id:Date.now(),name:pw.name,role:pw.role,appRole:"worker",payType,hourlyRate:payType==="hourly"?+rate:null,weeklyRate:payType==="salary"?+rate:null};setWorkers([...workers,nw]);setPending(pending.filter(w=>w.id!==pwid));addToast("✅ "+pw.name+" aprobado.","succ");};
+  const reject=id=>{const pw=pending.find(w=>w.id===id);setPending(pending.filter(w=>w.id!==id));addToast("Solicitud de "+(pw?.name||"")+" rechazada.","warn");};
+  const ws=getThursdayStart(weekDate);const wEndD=new Date(ws+"T12:00:00");wEndD.setDate(wEndD.getDate()+6);const wEndStr=wEndD.toISOString().split("T")[0];
+  const wEntries=timeEntries.filter(e=>e.date>=ws&&e.date<=wEndStr);
+  const weeklySummary=useMemo(()=>workers.map(w=>{const we=wEntries.filter(e=>e.workerId===w.id&&e.hours>0);const totalH=we.reduce((s,e)=>s+e.hours,0);let totalCost;if(w.payType==="salary"){const days=new Set(we.map(e=>e.date)).size;totalCost=days*dailyRate(w);}else{totalCost=we.reduce((s,e)=>s+e.hours*(w.hourlyRate||0),0);}const byProject=projects.map(p=>{const pe=we.filter(e=>e.projectId===p.id);const ph=pe.reduce((s,e)=>s+e.hours,0);let pc;if(w.payType==="salary"){const dd=new Set(pe.map(e=>e.date)).size;pc=dd*dailyRate(w);}else{pc=pe.reduce((s,e)=>s+e.hours*(w.hourlyRate||0),0);}return{...p,hours:ph,cost:pc};}).filter(p=>p.hours>0);return{...w,totalH,totalCost,byProject};}).filter(w=>w.totalH>0),[wEntries,workers,projects]);
+
+  const isClockRole=role==="foreman"||role==="supervisor"||role==="master";
+  if(isClockRole){
+    const proj=projects.find(p=>p.id===fpid);const todayLog=timeEntries.filter(e=>e.projectId===fpid&&e.date===entryDate);
+    return<div style={{maxWidth:640,margin:"0 auto"}}>
+      <Card style={{padding:22,marginBottom:16}}>
+        <div style={{textAlign:"center",marginBottom:18}}><div style={{fontSize:10,color:"var(--muted)",fontFamily:M,marginBottom:4,letterSpacing:"0.1em",textTransform:"uppercase"}}>Registro de horas</div><div style={{fontSize:18,fontWeight:700,color:role==="supervisor"?"var(--purp)":"var(--info)"}}>{proj?.name||"Sin proyecto"}</div><div style={{fontSize:11,color:"var(--muted)",marginTop:4,fontFamily:M}}>−30 min almuerzo si {">"} 5 hrs · Salario = tarifa diaria fija</div></div>
+        <Slct label="Proyecto" value={fpid||""} onChange={e=>{setFpid(+e.target.value);setSelWid(null);}}>{projects.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</Slct>
+        <div style={{marginBottom:12}}><div style={{fontSize:11,color:"var(--muted)",fontFamily:M,marginBottom:7}}>Seleccionar trabajadores — clic para marcar/desmarcar individualmente</div><div style={{display:"flex",gap:7,marginBottom:8,flexWrap:"wrap"}}><Btn v="succ" sm onClick={()=>setSelWids(workers.filter(w=>getSt(w.id,fpid)!=="unavailable").map(w=>w.id))}>✓ Seleccionar todos</Btn>{selWids.length>0&&<Btn v="dngr" sm onClick={()=>setSelWids([])}>✗ Deseleccionar todos</Btn>}{selWids.length>0&&<span style={{fontSize:11,fontFamily:M,color:"var(--succ)",fontWeight:600,alignSelf:"center"}}>{selWids.length} seleccionado{selWids.length!==1?"s":""}</span>}</div>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(155px,1fr))",gap:7}}>{workers.map(w=>{const st=getSt(w.id,fpid);const unavail=st==="unavailable";const isSel=selWids.includes(w.id);const asgN=unavail?projects.find(p=>p.id===allDayMap[w.id])?.name:"";
+            return<div key={w.id} onClick={()=>{if(!unavail)setSelWids(prev=>isSel?prev.filter(x=>x!==w.id):[...prev,w.id]);}} style={{padding:"9px 12px",borderRadius:"var(--r)",border:isSel?"1.5px solid var(--succ-bdr)":unavail?"1px dashed var(--dis-bdr)":"0.5px solid var(--bdrMd)",background:isSel?"var(--succ-bg)":unavail?"var(--dis-bg)":"var(--surf)",cursor:unavail?"not-allowed":"pointer",opacity:unavail?0.6:1}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:2}}>
+                <div style={{fontSize:13,fontWeight:600,color:unavail?"var(--muted)":isSel?"var(--succ)":"var(--text)"}}>{w.name}</div>
+                {isSel&&<span style={{background:"var(--succ-bdr)",color:"white",borderRadius:"50%",width:18,height:18,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,flexShrink:0}}>✓</span>}
+              </div>
+              <div style={{fontSize:10,color:"var(--muted)",fontFamily:M,marginBottom:4}}>{w.role}{w.payType==="salary"&&<span style={{color:"var(--purp)"}}> · fijo</span>}</div>
+              <Badge status={unavail?"Unavailable":st==="active"?"Active":"Available"} label={unavail?"En: "+asgN:st==="active"?"Activo aquí":"Disponible"}/>
+            </div>;})}
+          </div>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,alignItems:"end"}}><Fld label="Fecha" type="date" value={entryDate} onChange={e=>{setEntryDate(e.target.value);setSelWids([]);}}/><Fld label="Hora de entrada" type="time" value={clockIn} onChange={e=>setClockIn(e.target.value)}/><Fld label="Hora de salida" type="time" value={clockOut} onChange={e=>setClockOut(e.target.value)}/></div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 2fr",gap:10,marginBottom:10}}>
+          <div><div style={{fontSize:11,color:"var(--muted)",marginBottom:3,fontFamily:M}}>Tiempo muerto (min)</div><input type="number" value={deadMins||""} onChange={e=>setDeadMins(+e.target.value||0)} placeholder="0" min="0" style={{background:"var(--surf)",border:"0.5px solid var(--bdrMd)",color:"var(--text)",padding:"7px 10px",borderRadius:"var(--r)",width:"100%",fontSize:13,fontFamily:M,outline:"none"}}/></div>
+          <div style={{background:"var(--info-bg)",border:"0.5px solid var(--info-bdr)",borderRadius:"var(--r)",padding:"8px 12px",fontSize:11,color:"var(--info)",display:"flex",alignItems:"center"}}>Ej: almuerzo extra de 45 min → ingresa 15. Si trabajó ≤5 hrs no se descuenta almuerzo.</div>
+        </div>
+        {h>0&&<div style={{background:"var(--info-bg)",borderRadius:"var(--r)",padding:"8px 12px",marginBottom:12,display:"flex",justifyContent:"space-between",alignItems:"center"}}><span style={{fontSize:12,color:"var(--muted)"}}>Horas netas</span><span style={{fontSize:22,fontFamily:M,fontWeight:700,color:"var(--info)"}}>{h}h</span></div>}
+        <button onClick={addEntry} disabled={!selWids.length} style={{width:"100%",padding:"12px",fontSize:14,fontWeight:700,background:selWids.length?"var(--succ-bg)":"var(--dis-bg)",color:selWids.length?"var(--succ)":"var(--dis)",border:"1.5px solid "+(selWids.length?"var(--succ-bdr)":"var(--dis-bdr)"),borderRadius:"var(--r)",cursor:selWids.length?"pointer":"not-allowed",fontFamily:M}}>{selWids.length>1?"Registrar "+selWids.length+" trabajadores — "+selWids.map(id=>workers.find(w=>w.id===id)?.name).join(", "):selWids.length===1?"Registrar — "+workers.find(w=>w.id===selWids[0])?.name:"Selecciona uno o más trabajadores"}</button>
+      </Card>
+      <Card style={{marginBottom:16}}>
+        <SHead title={"Log del día — "+entryDate}/>
+        {todayLog.length===0?<Empty msg="Sin entradas para esta fecha."/>:
+        <table style={{width:"100%",borderCollapse:"collapse"}}><thead><tr>{["Trabajador","Entrada","Salida","T.Muerto","Horas",""].map(h=><th key={h} style={TH}>{h}</th>)}</tr></thead>
+        <tbody>{todayLog.map(e=>{const w=workers.find(w=>w.id===e.workerId);return<tr key={e.id}><td style={{...TD,fontWeight:600}}>{w?.name}<div style={{fontSize:10,color:"var(--muted)",fontFamily:M}}>{w?.role}</div></td><td style={{...TD,fontFamily:M,fontSize:12,color:"var(--succ)",fontWeight:600}}>{e.clockIn}</td><td style={TD}>{e.clockOut?<span style={{fontFamily:M,fontSize:12,color:"var(--dngr)",fontWeight:600}}>{e.clockOut}</span>:<div style={{display:"flex",gap:5,alignItems:"center"}}><input type="time" defaultValue="" onChange={ev=>{if(ev.target.value)closeEntry(e.id,ev.target.value);}} style={{background:"var(--surf)",border:"0.5px solid var(--bdrMd)",color:"var(--text)",padding:"3px 7px",borderRadius:"var(--r)",fontSize:12,fontFamily:M,outline:"none",width:90}}/><span style={{fontSize:10,color:"var(--muted)"}}>← salida</span></div>}</td><td style={{...TD,fontFamily:M,fontSize:12,color:e.deadMins>0?"var(--dngr)":"var(--muted)"}}>{e.deadMins>0?"-"+e.deadMins+"m":"—"}</td><td style={{...TD,fontFamily:M,fontWeight:700,color:"var(--info)"}}>{e.hours>0?e.hours+"h":"—"}</td><td style={TD}/></tr>;})}
+        </tbody></table>}
+      </Card>
+      <Card>
+        {/* For master: add directly. For foreman/supervisor: request approval */}
+        {role==="master"
+          ?<>
+            <SHead title="Agregar trabajador" action={<Btn v="succ" sm onClick={()=>setAddingNW(!addingNW)}>+ Agregar trabajador</Btn>}/>
+            {addingNW&&<div style={{padding:"14px 15px",background:"var(--succ-bg)",borderBottom:"1px solid var(--succ-bdr)"}}>
+              <div style={{background:"var(--info-bg)",border:"0.5px solid var(--info-bdr)",borderRadius:"var(--r)",padding:"8px 12px",fontSize:12,color:"var(--info)",marginBottom:12}}>
+                ℹ️ Como Master puedes agregar trabajadores directamente a la lista activa.
+              </div>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+                <Fld label="Nombre completo" value={newWForm.name} onChange={e=>setNewWForm({...newWForm,name:e.target.value})} placeholder="Nombre del trabajador"/>
+                <Slct label="Cargo" value={newWForm.role} onChange={e=>setNewWForm({...newWForm,role:e.target.value})}><option>Ayudante</option><option>Carpintero</option><option>Cabillero</option><option>General</option><option>Foreman</option></Slct>
+              </div>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+                <Slct label="Tipo de pago" value={newWForm.payType||"hourly"} onChange={e=>setNewWForm({...newWForm,payType:e.target.value})}><option value="hourly">Por hora ($/hr)</option><option value="salary">Salario semanal</option></Slct>
+                {(newWForm.payType||"hourly")==="hourly"
+                  ?<Fld label="Tarifa ($/hr)" type="number" value={newWForm.rate||""} onChange={e=>setNewWForm({...newWForm,rate:e.target.value})} placeholder="Ej: 21"/>
+                  :<Fld label="Salario semanal ($)" type="number" value={newWForm.rate||""} onChange={e=>setNewWForm({...newWForm,rate:e.target.value})} placeholder="Ej: 1200"/>
+                }
+              </div>
+              <Fld label="Notas (opcional)" value={newWForm.notes} onChange={e=>setNewWForm({...newWForm,notes:e.target.value})} placeholder="Información adicional..."/>
+              <div style={{display:"flex",gap:8}}>
+                <Btn v="succ" onClick={()=>{
+                  if(!newWForm.name.trim()||!newWForm.rate)return;
+                  const pt=newWForm.payType||"hourly";
+                  const nw={id:Date.now(),name:newWForm.name.trim(),role:newWForm.role||"Ayudante",appRole:"worker",payType:pt,hourlyRate:pt==="hourly"?+newWForm.rate:null,weeklyRate:pt==="salary"?+newWForm.rate:null};
+                  setWorkers(prev=>[...prev,nw]);
+                  setNewWForm({name:"",role:"Ayudante",notes:""});
+                  setAddingNW(false);
+                  addToast("✅ "+nw.name+" agregado a la lista de personal.","succ");
+                }}>Agregar a la lista</Btn>
+                <Btn v="def" onClick={()=>setAddingNW(false)}>Cancelar</Btn>
+              </div>
+            </div>}
+            {/* Pending approvals from foreman/supervisor requests */}
+            {pending.length>0&&<div style={{padding:"12px 15px",borderTop:"0.5px solid var(--bdr)"}}>
+              <div style={{fontWeight:600,fontSize:13,color:"var(--warn)",marginBottom:10}}>⏳ {pending.length} solicitud{pending.length!==1?"es":""} pendiente{pending.length!==1?"s":""} de Foreman/Supervisor</div>
+              {pending.map(pw=>{const ad=apprData[pw.id]||{payType:"hourly",rate:""};return<div key={pw.id} style={{padding:"12px 14px",background:"var(--warn-bg)",borderRadius:"var(--r)",border:"1px solid var(--warn-bdr)",marginBottom:10}}>
+                <div style={{fontWeight:600,fontSize:14,marginBottom:6}}>{pw.name} — <span style={{fontSize:12,color:"var(--muted)",fontWeight:400}}>{pw.role}{pw.notes&&" · "+pw.notes}</span></div>
+                <div style={{display:"flex",gap:8,alignItems:"flex-end",flexWrap:"wrap"}}>
+                  <select value={ad.payType||"hourly"} onChange={e=>setAD(pw.id,"payType",e.target.value)} style={{background:"var(--bg)",border:"0.5px solid var(--bdrMd)",color:"var(--text)",padding:"7px 10px",borderRadius:"var(--r)",fontSize:13,fontFamily:M,outline:"none"}}><option value="hourly">Por hora ($/hr)</option><option value="salary">Salario semanal</option></select>
+                  <input type="number" value={ad.rate||""} onChange={e=>setAD(pw.id,"rate",e.target.value)} placeholder={(ad.payType||"hourly")==="salary"?"Salario semanal $":"Tarifa $/hr"} style={{background:"var(--bg)",border:"0.5px solid var(--bdrMd)",color:"var(--text)",padding:"7px 10px",borderRadius:"var(--r)",fontSize:13,fontFamily:M,outline:"none",width:160}}/>
+                  <Btn v="succ" onClick={()=>{if(!ad.rate){alert("Ingresa la tarifa primero.");return;}approve(pw.id,ad.payType||"hourly",ad.rate);}}>✓ Aprobar y agregar</Btn>
+                  <Btn v="dngr" onClick={()=>reject(pw.id)}>Rechazar</Btn>
+                </div>
+              </div>;})}
+            </div>}
+            {pending.length===0&&!addingNW&&<div style={{padding:"12px 15px",fontSize:12,color:"var(--muted)",fontStyle:"italic"}}>Sin solicitudes pendientes de Foreman/Supervisor.</div>}
+          </>
+          :<>
+            <SHead title="Solicitar nuevo trabajador" action={<Btn v="info" sm onClick={()=>setAddingNW(!addingNW)}>+ Solicitar</Btn>}/>
+            {addingNW&&<div style={{padding:"14px 15px",background:"var(--info-bg)",borderBottom:"1px solid var(--info-bdr)"}}>
+              <div style={{fontSize:12,color:"var(--info)",marginBottom:10}}>La solicitud será enviada al Supervisor y Master para aprobación.</div>
+              <Fld label="Nombre completo" value={newWForm.name} onChange={e=>setNewWForm({...newWForm,name:e.target.value})} placeholder="Nombre del nuevo trabajador"/>
+              <Slct label="Cargo" value={newWForm.role} onChange={e=>setNewWForm({...newWForm,role:e.target.value})}><option>Ayudante</option><option>Carpintero</option><option>Cabillero</option><option>General</option></Slct>
+              <Fld label="Notas" value={newWForm.notes} onChange={e=>setNewWForm({...newWForm,notes:e.target.value})} placeholder="Comienza el lunes, contacto..."/>
+              <div style={{display:"flex",gap:8}}><Btn v="info" onClick={propose}>Enviar solicitud</Btn><Btn v="def" onClick={()=>setAddingNW(false)}>Cancelar</Btn></div>
+            </div>}
+            {pending.length===0?<Empty msg="Sin solicitudes pendientes."/>:
+            <div style={{padding:14}}>{pending.map(pw=><div key={pw.id} style={{padding:"10px 12px",borderRadius:"var(--r)",border:"1px solid var(--warn-bdr)",background:"var(--warn-bg)",marginBottom:8}}><div style={{fontWeight:600,fontSize:13,marginBottom:2}}>{pw.name} <Badge status="Pending" label="Pendiente de aprobación"/></div><div style={{fontSize:11,color:"var(--muted)"}}>{pw.role} · {pw.date}{pw.notes&&" — "+pw.notes}</div></div>)}</div>}
+          </>
+        }
+      </Card>
+      {role==="master"&&<div style={{marginTop:16}}>
+        <div style={{fontWeight:600,fontSize:13,color:"var(--warn)",marginBottom:12,padding:"4px 0"}}>📊 Resumen y gestión</div>
+        <div style={{display:"flex",border:"0.5px solid var(--bdrMd)",borderRadius:"var(--r)",overflow:"hidden",width:"fit-content",marginBottom:14}}>{[["clock2","Log de entradas"],["weekly2","Resumen semanal"],["costs2","Costo por proyecto"]].map(([v,l],i)=>(<div key={v} onClick={()=>setSubTab(v)} style={{padding:"7px 16px",cursor:"pointer",fontSize:12,fontFamily:M,background:subTab===v?"var(--warn-bg)":"transparent",color:subTab===v?"var(--warn)":"var(--muted)",fontWeight:subTab===v?600:400,borderRight:i<2?"0.5px solid var(--bdrMd)":"none"}}>{l}</div>))}</div>
+        {(subTab==="clock2"||subTab==="clock")&&<Card>
+          <SHead title="Todas las entradas" action={<select value={filterPid} onChange={e=>setFilterPid(e.target.value)} style={{background:"var(--bg)",border:"0.5px solid var(--bdrMd)",color:"var(--text)",padding:"5px 9px",borderRadius:"var(--r)",fontSize:12,fontFamily:M,outline:"none"}}><option value="all">Todos los proyectos</option>{projects.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select>}/>
+          {(filterPid==="all"?timeEntries.filter(e=>e.hours>0):timeEntries.filter(e=>e.projectId===+filterPid&&e.hours>0)).length===0?<Empty msg="Sin entradas de tiempo registradas."/>:
+          <table style={{width:"100%",borderCollapse:"collapse"}}><thead><tr>{["Fecha","Proyecto","Trabajador","Tipo","Horas","T.Muerto","Costo",""].map(h=><th key={h} style={TH}>{h}</th>)}</tr></thead>
+          <tbody>{(filterPid==="all"?timeEntries.filter(e=>e.hours>0):timeEntries.filter(e=>e.projectId===+filterPid&&e.hours>0)).sort((a,b)=>b.date.localeCompare(a.date)).map(e=>{const w=workers.find(w=>w.id===e.workerId);const p=projects.find(p=>p.id===e.projectId);const cost=entryCost(e,w);return<tr key={e.id} onMouseOver={ev=>ev.currentTarget.style.background="var(--surf)"} onMouseOut={ev=>ev.currentTarget.style.background=""}>
+            <td style={{...TD,fontFamily:M,fontSize:11,color:"var(--muted)"}}>{e.date}</td>
+            <td style={{...TD,fontSize:12,fontWeight:500}}>{p?.name}</td>
+            <td style={{...TD,fontWeight:600}}>{w?.name}<div style={{fontSize:10,color:"var(--muted)"}}>{w?.role}</div></td>
+            <td style={TD}><Badge status={w?.payType==="salary"?"Salario":"Hora"} label={w?.payType==="salary"?"Sal.fijo":"Por hora"}/></td>
+            <td style={{...TD,fontFamily:M,fontWeight:700,color:"var(--warn)"}}>{e.hours}h</td>
+            <td style={{...TD,fontFamily:M,fontSize:11,color:e.deadMins>0?"var(--dngr)":"var(--muted)"}}>{e.deadMins>0?"-"+e.deadMins+"m":"—"}</td>
+            <td style={{...TD,fontFamily:M,fontWeight:700}}>{f$(cost)}</td>
+            <td style={TD}><Btn sm v="dngr" onClick={()=>{if(confirm("¿Eliminar esta entrada?"))setTimeEntries(prev=>prev.filter(x=>x.id!==e.id));}} style={{padding:"2px 8px"}}>× Eliminar</Btn></td>
+          </tr>;})}
+          </tbody><tfoot><tr style={{background:"var(--surf)"}}><td colSpan={7} style={{...TDF,textAlign:"right",fontFamily:M,fontSize:12,color:"var(--muted)",fontWeight:600}}>TOTAL LABOR</td><td style={{...TDF,fontFamily:M,fontWeight:700,fontSize:15,color:"var(--warn)"}}>{f$((filterPid==="all"?timeEntries.filter(e=>e.hours>0):timeEntries.filter(e=>e.projectId===+filterPid&&e.hours>0)).reduce((s,e)=>{const w=workers.find(w=>w.id===e.workerId);return s+entryCost(e,w);},0))}</td></tr></tfoot></table>}
+        </Card>}
+        {subTab==="weekly2"&&<div>
+          <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:14}}><Fld label="Semana:" type="date" value={weekDate} onChange={e=>setWeekDate(e.target.value)} style={{width:200,marginBottom:0}}/><div style={{fontSize:12,color:"var(--muted)",fontFamily:M,marginTop:18}}>{ws} (Jue) → {wEndStr} (Mié)</div></div>
+          {weeklySummary.length===0?<Empty msg="Sin entradas en esta semana."/>:
+          <div style={{display:"grid",gap:12}}>
+            {weeklySummary.map(w=>(<Card key={w.id}><div style={{padding:"12px 15px",borderBottom:"0.5px solid var(--bdr)",background:"var(--surf)",display:"flex",justifyContent:"space-between",alignItems:"center"}}><div><div style={{fontWeight:700,fontSize:14,marginBottom:3}}>{w.name}</div><div style={{display:"flex",gap:8,alignItems:"center"}}><span style={{fontSize:11,color:"var(--muted)"}}>{w.role}</span>{w.payType==="salary"?<Badge status="Salario" label={f$(w.weeklyRate)+"/sem · "+f$(dailyRate(w))+"/día"}/>:<Badge status="Hora" label={"$"+w.hourlyRate+"/hr"}/>}</div></div><div style={{textAlign:"right"}}><div style={{fontSize:18,fontWeight:700,fontFamily:M,color:"var(--warn)"}}>{f$(w.totalCost)}</div><div style={{fontSize:11,color:"var(--muted)",fontFamily:M}}>{w.totalH}h{w.payType==="salary"&&" · "+new Set(wEntries.filter(e=>e.workerId===w.id).map(e=>e.date)).size+" días"}</div></div></div>
+            <div style={{padding:"12px 15px"}}>{w.byProject.map(p=><div key={p.id} style={{display:"flex",justifyContent:"space-between",marginBottom:6}}><span style={{fontSize:13,fontWeight:500}}>{p.name}</span><div style={{display:"flex",gap:16}}><span style={{fontSize:12,fontFamily:M,color:"var(--muted)"}}>{p.hours}h</span><span style={{fontSize:13,fontFamily:M,fontWeight:600,color:"var(--succ)"}}>{f$(p.cost)}</span></div></div>)}</div>
+            </Card>))}
+            <Card style={{padding:"14px 15px",background:"var(--warn-bg)",borderColor:"var(--warn-bdr)"}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><div><div style={{fontWeight:700,fontSize:14,color:"var(--warn)"}}>Total nómina semana</div><div style={{fontSize:11,color:"var(--muted)",marginTop:2}}>{ws} — {wEndStr}</div></div><div style={{fontSize:24,fontWeight:700,fontFamily:M,color:"var(--warn)"}}>{f$(weeklySummary.reduce((s,w)=>s+w.totalCost,0))}</div></div></Card>
+          </div>}
+        </div>}
+        {subTab==="costs2"&&<div>
+          <div style={{display:"grid",gridTemplateColumns:"repeat("+Math.min(projects.length,3)+",minmax(0,1fr))",gap:12,marginBottom:16}}>{projects.map(p=>{const en=timeEntries.filter(e=>e.projectId===p.id&&e.hours>0);const cost=en.reduce((s,e)=>{const w=workers.find(w=>w.id===e.workerId);return s+entryCost(e,w);},0);const totalH=en.reduce((s,e)=>s+e.hours,0);return<Card key={p.id} style={{padding:"14px 16px"}}><div style={{fontSize:12,color:"var(--muted)",fontWeight:500,marginBottom:8}}>{p.name}</div><div style={{fontSize:24,fontWeight:700,fontFamily:M,color:"var(--warn)",marginBottom:3}}>{f$(cost)}</div><div style={{fontSize:11,color:"var(--muted)",marginBottom:8}}>{totalH}h trabajadas</div><Bar value={cost} max={p.contractValue*0.35}/><div style={{fontSize:10,color:"var(--muted)",fontFamily:M,marginTop:4}}>{pct(cost,p.contractValue*0.35)}% del budget</div></Card>;})}
+          </div>
+        </div>}
+      </div>}
+      {/* MASTER: management tabs below clock form */}
+      {role==="master"&&<div style={{marginTop:20}}>
+        <div style={{display:"flex",border:"0.5px solid var(--bdrMd)",borderRadius:"var(--r)",overflow:"hidden",width:"fit-content",marginBottom:14}}>
+          {[["mlog","Log completo & eliminar"],["mweek","Resumen Jue→Mié"],["mcost","Costo por proyecto"],["mnomina","💰 Nómina Jue→Mié"]].map(([v,l],i)=>(
+            <div key={v} onClick={()=>setSubTab(v)} style={{padding:"7px 16px",cursor:"pointer",fontSize:12,fontFamily:M,background:subTab===v?"var(--warn-bg)":"transparent",color:subTab===v?"var(--warn)":"var(--muted)",fontWeight:subTab===v?600:400,borderRight:i<2?"0.5px solid var(--bdrMd)":"none"}}>{l}</div>
+          ))}
+        </div>
+        {(subTab==="mlog"||subTab==="clock")&&<Card>
+          <SHead title="Todas las entradas de tiempo" action={
+            <select value={filterPid} onChange={e=>setFilterPid(e.target.value)} style={{background:"var(--bg)",border:"0.5px solid var(--bdrMd)",color:"var(--text)",padding:"5px 9px",borderRadius:"var(--r)",fontSize:12,fontFamily:M,outline:"none"}}>
+              <option value="all">Todos los proyectos</option>
+              {projects.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>}/>
+          {(filterPid==="all"?timeEntries.filter(e=>e.hours>0):timeEntries.filter(e=>e.projectId===+filterPid&&e.hours>0)).length===0
+            ?<Empty msg="Sin entradas de tiempo."/>
+            :<table style={{width:"100%",borderCollapse:"collapse"}}>
+              <thead><tr>{["Fecha","Proyecto","Trabajador","Tipo","Horas","T.Muerto","Costo",""].map(h=><th key={h} style={TH}>{h}</th>)}</tr></thead>
+              <tbody>{(filterPid==="all"?timeEntries.filter(e=>e.hours>0):timeEntries.filter(e=>e.projectId===+filterPid&&e.hours>0)).sort((a,b)=>b.date.localeCompare(a.date)).map(e=>{
+                const w=workers.find(w=>w.id===e.workerId);const p=projects.find(p=>p.id===e.projectId);const cost=entryCost(e,w);
+                return<tr key={e.id} onMouseOver={ev=>ev.currentTarget.style.background="var(--surf)"} onMouseOut={ev=>ev.currentTarget.style.background=""}>
+                  <td style={{...TD,fontFamily:M,fontSize:11,color:"var(--muted)"}}>{e.date}</td>
+                  <td style={{...TD,fontSize:12,fontWeight:500}}>{p?.name}</td>
+                  <td style={{...TD,fontWeight:600}}>{w?.name}<div style={{fontSize:10,color:"var(--muted)"}}>{w?.role}</div></td>
+                  <td style={TD}><Badge status={w?.payType==="salary"?"Salario":"Hora"} label={w?.payType==="salary"?"Sal.fijo":"Por hora"}/></td>
+                  <td style={{...TD,fontFamily:M,fontWeight:700,color:"var(--warn)"}}>{e.hours}h</td>
+                  <td style={{...TD,fontFamily:M,fontSize:11,color:e.deadMins>0?"var(--dngr)":"var(--muted)"}}>{e.deadMins>0?"-"+e.deadMins+"m":"—"}</td>
+                  <td style={{...TD,fontFamily:M,fontWeight:700}}>{f$(cost)}</td>
+                  <td style={TD}><Btn sm v="dngr" onClick={()=>{if(confirm("¿Eliminar esta entrada de "+w?.name+"?"))setTimeEntries(prev=>prev.filter(x=>x.id!==e.id));}} style={{padding:"3px 9px"}}>× Eliminar</Btn></td>
+                </tr>;})}
+              </tbody>
+              <tfoot><tr style={{background:"var(--surf)"}}><td colSpan={7} style={{...TDF,textAlign:"right",fontFamily:M,fontSize:12,color:"var(--muted)",fontWeight:600}}>TOTAL LABOR</td>
+                <td style={{...TDF,fontFamily:M,fontWeight:700,fontSize:15,color:"var(--warn)"}}>{f$((filterPid==="all"?timeEntries.filter(e=>e.hours>0):timeEntries.filter(e=>e.projectId===+filterPid&&e.hours>0)).reduce((s,e)=>{const w=workers.find(w=>w.id===e.workerId);return s+entryCost(e,w);},0))}</td>
+              </tr></tfoot>
+            </table>}
+        </Card>}
+        {subTab==="mweek"&&<div>
+          <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:14}}><Fld label="Semana:" type="date" value={weekDate} onChange={e=>setWeekDate(e.target.value)} style={{width:200,marginBottom:0}}/><div style={{fontSize:12,color:"var(--muted)",fontFamily:M,marginTop:18}}>{ws} → {wEndStr}</div></div>
+          {weeklySummary.length===0?<Empty msg="Sin entradas en esta semana."/>:
+          <div style={{display:"grid",gap:12}}>
+            {weeklySummary.map(w=>(
+              <Card key={w.id}>
+                <div style={{padding:"12px 15px",borderBottom:"0.5px solid var(--bdr)",background:"var(--surf)",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                  <div><div style={{fontWeight:700,fontSize:14,marginBottom:3}}>{w.name}</div>
+                  <div style={{display:"flex",gap:8,alignItems:"center"}}><span style={{fontSize:11,color:"var(--muted)"}}>{w.role}</span>
+                  {w.payType==="salary"?<Badge status="Salario" label={f$(w.weeklyRate)+"/sem · "+f$(dailyRate(w))+"/día"}/>:<Badge status="Hora" label={"$"+w.hourlyRate+"/hr"}/>}
+                  </div></div>
+                  <div style={{textAlign:"right"}}><div style={{fontSize:18,fontWeight:700,fontFamily:M,color:"var(--warn)"}}>{f$(w.totalCost)}</div>
+                  <div style={{fontSize:11,color:"var(--muted)",fontFamily:M}}>{w.totalH}h{w.payType==="salary"&&" · "+new Set(wEntries.filter(e=>e.workerId===w.id).map(e=>e.date)).size+" días"}</div></div>
+                </div>
+                <div style={{padding:"12px 15px"}}>
+                  {w.byProject.map(p=><div key={p.id} style={{display:"flex",justifyContent:"space-between",marginBottom:6}}><span style={{fontSize:13,fontWeight:500}}>{p.name}</span><div style={{display:"flex",gap:16}}><span style={{fontSize:12,fontFamily:M,color:"var(--muted)"}}>{p.hours}h</span><span style={{fontSize:13,fontFamily:M,fontWeight:600,color:"var(--succ)"}}>{f$(p.cost)}</span></div></div>)}
+                  <div style={{marginTop:10,paddingTop:10,borderTop:"0.5px solid var(--bdr)"}}><div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:5}}>
+                    {Array.from({length:7},(_,i)=>{const d=new Date(ws+"T12:00:00");d.setDate(d.getDate()+i);const ds=d.toISOString().split("T")[0];const dh=wEntries.filter(e=>e.workerId===w.id&&e.date===ds).reduce((s,e)=>s+e.hours,0);const dow=["J","V","S","—","L","M","M"][i];return<div key={i} style={{textAlign:"center",padding:"5px 3px",borderRadius:"var(--r)",background:i===3?"var(--dis-bg)":dh>0?"var(--warn-bg)":"var(--surf)",border:"0.5px solid "+(i===3?"var(--dis-bdr)":"var(--bdr)")}}><div style={{fontSize:9,color:i===3?"var(--dngr)":"var(--muted)",fontFamily:M,marginBottom:2}}>{dow}</div><div style={{fontSize:11,fontFamily:M,fontWeight:600,color:i===3?"var(--dis)":dh>0?"var(--warn)":"var(--muted)"}}>{dh>0?dh+"h":"—"}</div></div>;})}
+                  </div></div>
+                </div>
+              </Card>
+            ))}
+            <Card style={{padding:"14px 15px",background:"var(--warn-bg)",borderColor:"var(--warn-bdr)"}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><div><div style={{fontWeight:700,fontSize:14,color:"var(--warn)"}}>Total nómina semana</div><div style={{fontSize:11,color:"var(--muted)",marginTop:2}}>{ws} — {wEndStr}</div></div><div style={{fontSize:24,fontWeight:700,fontFamily:M,color:"var(--warn)"}}>{f$(weeklySummary.reduce((s,w)=>s+w.totalCost,0))}</div></div></Card>
+          </div>}
+        </div>}
+        {subTab==="mcost"&&<div>
+          <div style={{display:"grid",gridTemplateColumns:"repeat("+Math.min(projects.length,3)+",minmax(0,1fr))",gap:12}}>
+            {projects.map(p=>{const en=timeEntries.filter(e=>e.projectId===p.id&&e.hours>0);const cost=en.reduce((s,e)=>{const w=workers.find(w=>w.id===e.workerId);return s+entryCost(e,w);},0);const totalH=en.reduce((s,e)=>s+e.hours,0);return<Card key={p.id} style={{padding:"14px 16px"}}><div style={{fontSize:12,color:"var(--muted)",fontWeight:500,marginBottom:8}}>{p.name}</div><div style={{fontSize:24,fontWeight:700,fontFamily:M,color:"var(--warn)",marginBottom:3}}>{f$(cost)}</div><div style={{fontSize:11,color:"var(--muted)",marginBottom:8}}>{totalH}h trabajadas</div><Bar value={cost} max={p.contractValue*0.35}/><div style={{fontSize:10,color:"var(--muted)",fontFamily:M,marginTop:4}}>{pct(cost,p.contractValue*0.35)}% del budget</div></Card>;})}
+          </div>
+        </div>}
+        {subTab==="mnomina"&&<div>
+          <div style={{display:"flex",alignItems:"center",gap:14,marginBottom:16,flexWrap:"wrap"}}>
+            <div><div style={{fontSize:11,color:"var(--muted)",fontFamily:M,marginBottom:4}}>Semana de pago (Jueves)</div>
+              <input type="date" value={payDate} onChange={e=>setPayDate(getThursdayStart(e.target.value))} style={{background:"var(--surf)",border:"0.5px solid var(--bdrMd)",color:"var(--text)",padding:"7px 11px",borderRadius:"var(--r)",fontSize:13,fontFamily:M,outline:"none"}}/>
+            </div>
+            <div style={{fontSize:13,color:"var(--muted)",fontFamily:M,alignSelf:"flex-end",paddingBottom:8}}>
+              {payDate} <span style={{color:"var(--warn)",fontWeight:600}}>→</span> {addDays(payDate,6)}
+            </div>
+            <Btn v="info" sm style={{alignSelf:"flex-end",marginBottom:8}} onClick={()=>{
+              const payEnd=addDays(payDate,6);
+              const entries=timeEntries.filter(e=>e.date>=payDate&&e.date<=payEnd&&e.hours>0);
+              const rows=workers.map(w=>{
+                const we=entries.filter(e=>e.workerId===w.id);
+                if(!we.length)return null;
+                const totalH=we.reduce((s,e)=>s+e.hours,0);
+                let cost;if(w.payType==="salary"){const days=new Set(we.map(e=>e.date)).size;cost=days*dailyRate(w);}
+                else{cost=we.reduce((s,e)=>s+e.hours*(w.hourlyRate||0),0);}
+                return{...w,totalH,cost,days:new Set(we.map(e=>e.date)).size,byProj:projects.map(p=>{const pe=we.filter(e=>e.projectId===p.id);if(!pe.length)return null;let pc;if(w.payType==="salary"){const dd=new Set(pe.map(e=>e.date)).size;pc=dd*dailyRate(w);}else{pc=pe.reduce((s,e)=>s+e.hours*(w.hourlyRate||0),0);}return{name:p.name,hours:pe.reduce((s,e)=>s+e.hours,0),cost:pc};}).filter(Boolean)};
+              }).filter(Boolean);
+              const total=rows.reduce((s,w)=>s+w.cost,0);
+              const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Nómina ${payDate}</title><style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:-apple-system,sans-serif;padding:40px;color:#1a1a1a}table{width:100%;border-collapse:collapse}th{background:#f8f6f1;padding:9px 12px;text-align:left;font-size:11px;color:#6b7280;border-bottom:2px solid #e5e7eb;font-family:monospace}td{padding:10px 12px;border-bottom:1px solid #e5e7eb;font-size:13px}@media print{.np{display:none}}</style></head><body>
+              <div style="display:flex;justify-content:space-between;margin-bottom:28px"><div><div style="font-size:20px;font-weight:700;color:#92400e">N&W Construction Corp</div><div style="color:#6b7280;font-size:13px">1858 NW 69th Ter, Miami FL 33147</div></div><div style="text-align:right"><div style="font-size:26px;font-weight:700">NÓMINA</div><div style="font-family:monospace;font-size:13px;color:#6b7280;margin-top:4px">${payDate} → ${payEnd}</div></div></div>
+              <table><thead><tr><th>Trabajador</th><th>Cargo</th><th>Tipo</th><th>Días</th><th>Horas</th><th>Tarifa</th><th style="text-align:right">A pagar</th></tr></thead><tbody>${rows.map(w=>`<tr><td style="font-weight:600">${w.name}</td><td style="color:#6b7280">${w.role}</td><td>${w.payType==="salary"?"Salario fijo":"Por hora"}</td><td style="font-family:monospace;text-align:center">${w.days}</td><td style="font-family:monospace;text-align:center">${w.totalH}h</td><td style="font-family:monospace;color:#6b7280">${w.payType==="salary"?f$(dailyRate(w))+"/día":"$"+w.hourlyRate+"/hr"}</td><td style="font-family:monospace;font-weight:700;text-align:right;font-size:15px">${f$(w.cost)}</td></tr>${w.byProj.map(p=>`<tr style="background:#fffbf0"><td colspan="3" style="padding:4px 12px 4px 28px;font-size:11px;color:#6b7280">↳ ${p.name}</td><td style="font-family:monospace;font-size:11px;text-align:center;padding:4px 12px">${p.hours}h</td><td colspan="3" style="font-family:monospace;font-size:11px;text-align:right;padding:4px 12px;color:#059669">${f$(p.cost)}</td></tr>`).join("")}`).join("")}</tbody>
+              <tfoot><tr style="background:#fef3c7"><td colspan="6" style="padding:12px;text-align:right;font-weight:700;font-size:14px">TOTAL A PAGAR</td><td style="padding:12px;text-align:right;font-weight:700;font-size:22px;font-family:monospace;color:#92400e">${f$(total)}</td></tr></tfoot></table>
+              <div style="text-align:center;margin-top:32px" class="np"><button onclick="window.print()" style="background:#fef3c7;color:#92400e;border:1.5px solid #f59e0b;padding:10px 32px;font-size:14px;font-weight:700;border-radius:8px;cursor:pointer">🖨️ Imprimir / Guardar PDF</button></div>
+              </body></html>`;
+              const w2=window.open("","_blank","width=900,height=700");if(w2){w2.document.write(html);w2.document.close();}
+            }}>🖨️ Imprimir nómina</Btn>
+          </div>
+          {(()=>{
+            const payEnd=addDays(payDate,6);
+            const entries=timeEntries.filter(e=>e.date>=payDate&&e.date<=payEnd&&e.hours>0);
+            const rows=workers.map(w=>{
+              const we=entries.filter(e=>e.workerId===w.id);
+              if(!we.length)return null;
+              const totalH=we.reduce((s,e)=>s+e.hours,0);
+              let cost;if(w.payType==="salary"){const days=new Set(we.map(e=>e.date)).size;cost=days*dailyRate(w);}
+              else{cost=we.reduce((s,e)=>s+e.hours*(w.hourlyRate||0),0);}
+              const byProj=projects.map(p=>{const pe=we.filter(e=>e.projectId===p.id);if(!pe.length)return null;let pc;if(w.payType==="salary"){const dd=new Set(pe.map(e=>e.date)).size;pc=dd*dailyRate(w);}else{pc=pe.reduce((s,e)=>s+e.hours*(w.hourlyRate||0),0);}return{...p,hours:pe.reduce((s,e)=>s+e.hours,0),cost:pc};}).filter(Boolean);
+              return{...w,totalH,cost,days:new Set(we.map(e=>e.date)).size,byProj};
+            }).filter(Boolean);
+            const grandTotal=rows.reduce((s,w)=>s+w.cost,0);
+            if(!rows.length)return<Empty msg="Sin entradas de tiempo para este período. Selecciona otra semana."/>;
+            return<div>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(3,minmax(0,1fr))",gap:10,marginBottom:14}}>
+                <Kpi label="Total a pagar" value={f$(grandTotal)} color="var(--warn)"/>
+                <Kpi label="Trabajadores" value={rows.length} sub="con horas en el período"/>
+                <Kpi label="Período" value={payDate.slice(5)+" → "+addDays(payDate,6).slice(5)} sub="Jue · Vie · Sáb · Lun · Mar · Mié (Dom no cuenta)"/>
+              </div>
+              <Card>
+                <SHead title={"Nómina — "+payDate+" al "+addDays(payDate,6)}/>
+                <table style={{width:"100%",borderCollapse:"collapse"}}>
+                  <thead><tr>{["Trabajador","Cargo","Tipo de pago","Días","Horas","Tarifa","A pagar"].map(h=><th key={h} style={TH}>{h}</th>)}</tr></thead>
+                  <tbody>
+                    {rows.map(w=><React.Fragment key={w.id}>
+                      <tr onMouseOver={e=>e.currentTarget.style.background="var(--surf)"} onMouseOut={e=>e.currentTarget.style.background=""}>
+                        <td style={{...TD,fontWeight:700,fontSize:14}}>{w.name}</td>
+                        <td style={{...TD,fontSize:12,color:"var(--muted)"}}>{w.role}</td>
+                        <td style={TD}>{w.payType==="salary"?<Badge status="Salario" label={f$(w.weeklyRate)+"/sem"}/>:<Badge status="Hora" label={"$"+w.hourlyRate+"/hr"}/>}</td>
+                        <td style={{...TD,fontFamily:M,fontWeight:600,textAlign:"center"}}>{w.days} día{w.days!==1?"s":""}</td>
+                        <td style={{...TD,fontFamily:M,fontWeight:600,textAlign:"center"}}>{w.totalH}h</td>
+                        <td style={{...TD,fontFamily:M,fontSize:12,color:"var(--muted)"}}>{w.payType==="salary"?f$(dailyRate(w))+"/día":"$"+w.hourlyRate+"/hr"}</td>
+                        <td style={{...TD,fontFamily:M,fontWeight:700,fontSize:18,color:"var(--warn)"}}>{f$(w.cost)}</td>
+                      </tr>
+                      {w.byProj.map(p=><tr key={p.id} style={{background:"var(--surf)"}}>
+                        <td colSpan={3} style={{...TD,paddingLeft:28,fontSize:11,color:"var(--muted)",borderBottom:"none"}}>↳ {p.name}</td>
+                        <td colSpan={2} style={{...TD,fontFamily:M,fontSize:11,color:"var(--muted)",textAlign:"center",borderBottom:"none"}}>{p.hours}h</td>
+                        <td colSpan={2} style={{...TD,fontFamily:M,fontSize:12,fontWeight:600,color:"var(--succ)",borderBottom:"none"}}>{f$(p.cost)}</td>
+                      </tr>)}
+                    </React.Fragment>)}
+                  </tbody>
+                  <tfoot>
+                    <tr style={{background:"var(--warn-bg)"}}>
+                      <td colSpan={6} style={{...TDF,textAlign:"right",fontFamily:M,fontSize:13,color:"var(--warn)",fontWeight:700}}>TOTAL A PAGAR</td>
+                      <td style={{...TDF,fontFamily:M,fontWeight:700,fontSize:22,color:"var(--warn)"}}>{f$(grandTotal)}</td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </Card>
+            </div>;
+          })()}
+        </div>}
+      </div>}
+    </div>;
+  }
+
+  const filtered=filterPid==="all"?timeEntries.filter(e=>e.hours>0):timeEntries.filter(e=>e.projectId===+filterPid&&e.hours>0);
+  const totalCost=filtered.reduce((s,e)=>{const w=workers.find(w=>w.id===e.workerId);return s+entryCost(e,w);},0);
+  const projCosts=projects.map(p=>{const en=timeEntries.filter(e=>e.projectId===p.id&&e.hours>0);const cost=en.reduce((s,e)=>{const w=workers.find(w=>w.id===e.workerId);return s+entryCost(e,w);},0);return{...p,laborCost:cost,totalHours:en.reduce((s,e)=>s+e.hours,0)};});
+  return<div>
+    {pending.length>0&&<div style={{background:"var(--warn-bg)",border:"1.5px solid var(--warn-bdr)",borderRadius:"var(--r)",padding:16,marginBottom:16}}>
+      <div style={{fontWeight:600,fontSize:14,color:"var(--warn)",marginBottom:12}}>⏳ {pending.length} solicitud{pending.length!==1?"es":""} pendiente{pending.length!==1?"s":""}</div>
+      {pending.map(pw=>{const ad=apprData[pw.id]||{payType:"hourly",rate:""};return<div key={pw.id} style={{padding:"12px 14px",background:"var(--bg)",borderRadius:"var(--r)",border:"0.5px solid var(--bdrMd)",marginBottom:8}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:10}}>
+          <div><div style={{fontWeight:600,fontSize:14,marginBottom:3}}>{pw.name}</div><div style={{fontSize:12,color:"var(--muted)"}}>{pw.role}{pw.notes&&" — "+pw.notes}</div></div>
+          <div style={{display:"flex",gap:8,alignItems:"flex-end",flexWrap:"wrap"}}>
+            <select value={ad.payType||"hourly"} onChange={e=>setAD(pw.id,"payType",e.target.value)} style={{background:"var(--surf)",border:"0.5px solid var(--bdrMd)",color:"var(--text)",padding:"6px 9px",borderRadius:"var(--r)",fontSize:12,fontFamily:M,outline:"none"}}><option value="hourly">Por hora</option><option value="salary">Salario semanal</option></select>
+            <input type="number" value={ad.rate||""} onChange={e=>setAD(pw.id,"rate",e.target.value)} placeholder={ad.payType==="salary"?"$/sem":"$/hr"} style={{background:"var(--surf)",border:"0.5px solid var(--bdrMd)",color:"var(--text)",padding:"6px 9px",borderRadius:"var(--r)",fontSize:12,fontFamily:M,outline:"none",width:100}}/>
+            <Btn sm v="succ" onClick={()=>{if(!ad.rate){alert("Ingresa la tarifa.");return;}approve(pw.id,ad.payType||"hourly",ad.rate);}}>✓ Aprobar</Btn>
+            <Btn sm v="dngr" onClick={()=>reject(pw.id)}>Rechazar</Btn>
+          </div>
+        </div>
+      </div>;})}
+    </div>}
+    <div style={{display:"flex",border:"0.5px solid var(--bdrMd)",borderRadius:"var(--r)",overflow:"hidden",width:"fit-content",marginBottom:16}}>{[["clock","Entradas & log"],["weekly","Resumen semanal"],["costs","Costo por proyecto"]].map(([v,l],i)=>(<div key={v} onClick={()=>setSubTab(v)} style={{padding:"7px 16px",cursor:"pointer",fontSize:12,fontFamily:M,background:subTab===v?"var(--warn-bg)":"transparent",color:subTab===v?"var(--warn)":"var(--muted)",fontWeight:subTab===v?600:400,borderRight:i<2?"0.5px solid var(--bdrMd)":"none"}}>{l}</div>))}</div>
+    {subTab==="clock"&&<Card>
+      <SHead title="Entradas de tiempo" action={<select value={filterPid} onChange={e=>setFilterPid(e.target.value)} style={{background:"var(--bg)",border:"0.5px solid var(--bdrMd)",color:"var(--text)",padding:"5px 9px",borderRadius:"var(--r)",fontSize:12,fontFamily:M,outline:"none"}}><option value="all">Todos</option>{projects.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select>}/>
+      {filtered.length===0?<Empty msg="Sin entradas."/>:
+      <table style={{width:"100%",borderCollapse:"collapse"}}><thead><tr>{["Fecha","Proyecto","Trabajador","Tipo","Horas","T.Muerto","Tarifa","Costo",isMaster?"":""].map(h=><th key={h} style={TH}>{h}</th>)}</tr></thead>
+      <tbody>{filtered.sort((a,b)=>b.date.localeCompare(a.date)).map(e=>{const w=workers.find(w=>w.id===e.workerId);const p=projects.find(p=>p.id===e.projectId);const cost=entryCost(e,w);return<tr key={e.id} onMouseOver={ev=>ev.currentTarget.style.background="var(--surf)"} onMouseOut={ev=>ev.currentTarget.style.background=""}>
+        <td style={{...TD,fontFamily:M,fontSize:11,color:"var(--muted)"}}>{e.date}</td><td style={{...TD,fontSize:12,fontWeight:500}}>{p?.name}</td><td style={{...TD,fontWeight:600}}>{w?.name}<div style={{fontSize:10,color:"var(--muted)"}}>{w?.role}</div></td>
+        <td style={TD}><Badge status={w?.payType==="salary"?"Salario":"Hora"} label={w?.payType==="salary"?"Sal.fijo":"Por hora"}/></td>
+        <td style={{...TD,fontFamily:M,fontWeight:700,color:"var(--warn)"}}>{e.hours}h</td>
+        <td style={{...TD,fontFamily:M,fontSize:11,color:e.deadMins>0?"var(--dngr)":"var(--muted)"}}>{e.deadMins>0?"-"+e.deadMins+"m":"—"}</td>
+        <td style={{...TD,fontFamily:M,fontSize:11,color:"var(--muted)"}}>{w&&(w.payType==="salary"?f$(dailyRate(w))+"/día":"$"+w.hourlyRate+"/hr")}</td>
+        <td style={{...TD,fontFamily:M,fontWeight:700}}>{f$(cost)}</td>
+        {isMaster&&<td style={TD}><Btn sm v="dngr" onClick={()=>delEntry(e.id)} style={{padding:"1px 6px"}}>×</Btn></td>}
+      </tr>;})}
+      </tbody><tfoot><tr style={{background:"var(--surf)"}}><td colSpan={isMaster?8:8} style={{...TDF,textAlign:"right",fontFamily:M,fontSize:12,color:"var(--muted)",fontWeight:600}}>TOTAL LABOR</td><td style={{...TDF,fontFamily:M,fontWeight:700,fontSize:15,color:"var(--warn)"}}>{f$(totalCost)}</td>{isMaster&&<td style={TDF}/>}</tr></tfoot></table>}
+    </Card>}
+    {subTab==="weekly"&&<div>
+      <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:14}}><Fld label="Semana:" type="date" value={weekDate} onChange={e=>setWeekDate(e.target.value)} style={{width:200,marginBottom:0}}/><div style={{fontSize:12,color:"var(--muted)",fontFamily:M,marginTop:18}}>{ws} → {wEndStr}</div></div>
+      {weeklySummary.length===0?<Empty msg="Sin entradas en esta semana."/>:
+      <div style={{display:"grid",gap:12}}>
+        {weeklySummary.map(w=>(
+          <Card key={w.id}>
+            <div style={{padding:"12px 15px",borderBottom:"0.5px solid var(--bdr)",background:"var(--surf)",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <div><div style={{fontWeight:700,fontSize:14,marginBottom:3}}>{w.name}</div><div style={{display:"flex",gap:8,alignItems:"center"}}><span style={{fontSize:11,color:"var(--muted)"}}>{w.role}</span>{w.payType==="salary"?<Badge status="Salario" label={f$(w.weeklyRate)+"/sem · "+f$(dailyRate(w))+"/día"}/>:<Badge status="Hora" label={"$"+w.hourlyRate+"/hr"}/>}</div></div>
+              <div style={{textAlign:"right"}}><div style={{fontSize:18,fontWeight:700,fontFamily:M,color:"var(--warn)"}}>{f$(w.totalCost)}</div><div style={{fontSize:11,color:"var(--muted)",fontFamily:M}}>{w.totalH}h{w.payType==="salary"&&" · "+new Set(wEntries.filter(e=>e.workerId===w.id).map(e=>e.date)).size+" días"}</div></div>
+            </div>
+            <div style={{padding:"12px 15px"}}>
+              {w.byProject.map(p=><div key={p.id} style={{display:"flex",justifyContent:"space-between",marginBottom:6}}><span style={{fontSize:13,fontWeight:500}}>{p.name}</span><div style={{display:"flex",gap:16}}><span style={{fontSize:12,fontFamily:M,color:"var(--muted)"}}>{p.hours}h</span><span style={{fontSize:13,fontFamily:M,fontWeight:600,color:"var(--succ)"}}>{f$(p.cost)}</span></div></div>)}
+              <div style={{marginTop:10,paddingTop:10,borderTop:"0.5px solid var(--bdr)"}}><div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:5}}>
+                {Array.from({length:7},(_,i)=>{const d=new Date(ws+"T12:00:00");d.setDate(d.getDate()+i);const ds=d.toISOString().split("T")[0];const dh=wEntries.filter(e=>e.workerId===w.id&&e.date===ds).reduce((s,e)=>s+e.hours,0);const dow=["J","V","S","—","L","M","M"][i];return<div key={i} style={{textAlign:"center",padding:"5px 3px",borderRadius:"var(--r)",background:i===3?"var(--dis-bg)":dh>0?"var(--warn-bg)":"var(--surf)",border:"0.5px solid "+(i===3?"var(--dis-bdr)":"var(--bdr)")}}><div style={{fontSize:9,color:i===3?"var(--dngr)":"var(--muted)",fontFamily:M,marginBottom:2}}>{dow}</div><div style={{fontSize:11,fontFamily:M,fontWeight:600,color:i===3?"var(--dis)":dh>0?"var(--warn)":"var(--muted)"}}>{dh>0?dh+"h":"—"}</div></div>;})}
+              </div></div>
+            </div>
+          </Card>
+        ))}
+        <Card style={{padding:"14px 15px",background:"var(--warn-bg)",borderColor:"var(--warn-bdr)"}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><div><div style={{fontWeight:700,fontSize:14,color:"var(--warn)"}}>Total nómina semana</div><div style={{fontSize:11,color:"var(--muted)",marginTop:2}}>{ws} — {wEndStr}</div></div><div style={{fontSize:24,fontWeight:700,fontFamily:M,color:"var(--warn)"}}>{f$(weeklySummary.reduce((s,w)=>s+w.totalCost,0))}</div></div></Card>
+      </div>}
+    </div>}
+    {subTab==="costs"&&<div>
+      <div style={{display:"grid",gridTemplateColumns:"repeat("+Math.min(projects.length,3)+",minmax(0,1fr))",gap:12,marginBottom:16}}>
+        {projCosts.map(p=><Card key={p.id} style={{padding:"14px 16px"}}><div style={{fontSize:12,color:"var(--muted)",fontWeight:500,marginBottom:8}}>{p.name}</div><div style={{fontSize:24,fontWeight:700,fontFamily:M,color:"var(--warn)",marginBottom:3}}>{f$(p.laborCost)}</div><div style={{fontSize:11,color:"var(--muted)",marginBottom:8}}>{p.totalHours}h trabajadas</div><Bar value={p.laborCost} max={p.contractValue*0.35}/><div style={{fontSize:10,color:"var(--muted)",fontFamily:M,marginTop:4}}>{pct(p.laborCost,p.contractValue*0.35)}% del budget</div></Card>)}
+      </div>
+      <Card><SHead title="Personal completo"/>
+        <table style={{width:"100%",borderCollapse:"collapse"}}><thead><tr>{["Trabajador","Rol","Tipo","Tarifa","Horas totales","Costo acum.","Estado"].map(h=><th key={h} style={TH}>{h}</th>)}</tr></thead>
+        <tbody>{workers.map(w=>{const asgPid=Object.entries(allDayMap).find(([wid])=>+wid===w.id)?.[1];const asgProj=projects.find(p=>p.id===asgPid);const allE=timeEntries.filter(e=>e.workerId===w.id&&e.hours>0);const totalH=allE.reduce((s,e)=>s+e.hours,0);const totalC=allE.reduce((s,e)=>s+entryCost(e,w),0);return<tr key={w.id} onMouseOver={e=>e.currentTarget.style.background="var(--surf)"} onMouseOut={e=>e.currentTarget.style.background=""}>
+          <td style={{...TD,fontWeight:600}}>{w.name}</td><td style={{...TD,fontSize:12,color:"var(--muted)"}}>{w.role}</td>
+          <td style={TD}>{w.payType==="salary"?<Badge status="Salario" label={f$(w.weeklyRate)+"/sem"}/>:<Badge status="Hora" label={"$"+w.hourlyRate+"/hr"}/>}</td>
+          <td style={{...TD,fontFamily:M,fontSize:12}}>{w.payType==="salary"?f$(dailyRate(w))+"/día":"$"+w.hourlyRate+"/hr"}</td>
+          <td style={{...TD,fontFamily:M,fontWeight:600}}>{totalH}h</td><td style={{...TD,fontFamily:M,fontWeight:700,color:"var(--succ)"}}>{f$(totalC)}</td>
+          <td style={TD}><Badge status={asgPid?"Active":"Available"} label={asgPid?"Activo — "+(asgProj?.name||""):"Disponible"}/></td>
+        </tr>;})}
+        </tbody></table>
+      </Card>
+    </div>}
+  </div>;
+}
+
+/* ═══ COMPRAS + GASTOS ═══ */
+const PCATS=["Materiales","Herramientas","Insumos","Equipos","Transporte","Subcontrato","Otros"];
+const GCATS=["Seguro de compañía","Seguro de vehículos","Gasolina","Contabilidad","Registros / Licencias","Herramientas generales","Comunicaciones","Comidas","Otros"];
+function Compras({projects,purchases,setPurchases,expenses,setExpenses,role}){
+  const[view,setView]=useState("compras");
+  const[form,setForm]=useState({projectId:projects[0]?.id||"",date:TODAY,description:"",category:"Materiales",amount:"",notes:""});
+  const[img,setImg]=useState(null);const[imgPrev,setImgPrev]=useState(null);const[adding,setAdding]=useState(false);const[filterPid,setFilterPid]=useState("all");const[viewImg,setViewImg]=useState(null);
+  const[eForm,setEForm]=useState({date:TODAY,description:"",category:"Gasolina",amount:"",notes:""});const[eImg,setEImg]=useState(null);const[eImgPrev,setEImgPrev]=useState(null);const[addingE,setAddingE]=useState(false);
+  const fRef=useRef();const eRef=useRef();
+  const isMaster=role==="master";
+  const hF=e=>{const f=e.target.files[0];if(!f)return;if(f.size>5*1024*1024){alert("Imagen muy grande.");return;}const r=new FileReader();r.onload=ev=>{setImg(ev.target.result);setImgPrev(ev.target.result);};r.readAsDataURL(f);};
+  const hEF=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>{setEImg(ev.target.result);setEImgPrev(ev.target.result);};r.readAsDataURL(f);};
+  const saveP=()=>{if(!form.description||!form.amount||!form.projectId)return;setPurchases([...purchases,{id:Date.now(),projectId:+form.projectId,date:form.date,description:form.description,category:form.category,amount:+form.amount,notes:form.notes,receipt:img}]);setForm({projectId:projects[0]?.id||"",date:TODAY,description:"",category:"Materiales",amount:"",notes:""});setImg(null);setImgPrev(null);if(fRef.current)fRef.current.value="";setAdding(false);};
+  const saveE=()=>{if(!eForm.description||!eForm.amount)return;setExpenses([...expenses,{id:Date.now(),date:eForm.date,description:eForm.description,category:eForm.category,amount:+eForm.amount,notes:eForm.notes,receipt:eImg}]);setEForm({date:TODAY,description:"",category:"Gasolina",amount:"",notes:""});setEImg(null);setEImgPrev(null);if(eRef.current)eRef.current.value="";setAddingE(false);};
+  const filt=filterPid==="all"?purchases:purchases.filter(p=>p.projectId===+filterPid);
+  const totFilt=filt.reduce((s,p)=>s+p.amount,0);const totExp=expenses.reduce((s,e)=>s+e.amount,0);const bP=projects.map(p=>({...p,total:purchases.filter(pu=>pu.projectId===p.id).reduce((s,pu)=>s+pu.amount,0),count:purchases.filter(pu=>pu.projectId===p.id).length}));
+  return(<div>
+    <div style={{display:"flex",border:"0.5px solid var(--bdrMd)",borderRadius:"var(--r)",overflow:"hidden",width:"fit-content",marginBottom:16}}>
+      {[["compras","Compras por proyecto"],["gastos","Gastos generales"]].map(([v,l],i)=>(<div key={v} onClick={()=>setView(v)} style={{padding:"7px 16px",cursor:"pointer",fontSize:12,fontFamily:M,background:view===v?v==="compras"?"var(--purp-bg)":"var(--teal-bg)":"transparent",color:view===v?v==="compras"?"var(--purp)":"var(--teal)":"var(--muted)",fontWeight:view===v?600:400,borderRight:i===0?"0.5px solid var(--bdrMd)":"none"}}>{l}</div>))}
+    </div>
+    {view==="compras"&&<>
+      <div style={{display:"grid",gridTemplateColumns:"repeat("+Math.min(projects.length,4)+",minmax(0,1fr))",gap:10,marginBottom:16}}>{bP.map(p=><Kpi key={p.id} label={p.name} value={f$(p.total)} sub={p.count+" compra"+(p.count!==1?"s":"")} color="var(--purp)"/>)}</div>
+      <Card>
+        <SHead title="Compras & materiales por proyecto" action={<div style={{display:"flex",gap:8,alignItems:"center"}}><select value={filterPid} onChange={e=>setFilterPid(e.target.value)} style={{background:"var(--bg)",border:"0.5px solid var(--bdrMd)",color:"var(--text)",padding:"5px 9px",borderRadius:"var(--r)",fontSize:12,fontFamily:M,outline:"none"}}><option value="all">Todos</option>{projects.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select><Btn v="purp" sm onClick={()=>setAdding(!adding)}>+ Nueva compra</Btn></div>}/>
+        {adding&&<div style={{padding:"16px 15px",background:"var(--purp-bg)",borderBottom:"1px solid var(--purp-bdr)"}}>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:8}}><Slct label="Proyecto" value={form.projectId} onChange={e=>setForm({...form,projectId:e.target.value})}>{projects.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</Slct><Fld label="Fecha" type="date" value={form.date} onChange={e=>setForm({...form,date:e.target.value})}/><Slct label="Categoría" value={form.category} onChange={e=>setForm({...form,category:e.target.value})}>{PCATS.map(c=><option key={c}>{c}</option>)}</Slct></div>
+          <div style={{display:"grid",gridTemplateColumns:"2fr 1fr",gap:10,marginBottom:8}}><Fld label="Descripción" value={form.description} onChange={e=>setForm({...form,description:e.target.value})} placeholder="Ej: Bloques 8x8x16 — 200 uds"/><Fld label="Monto ($)" type="number" value={form.amount} onChange={e=>setForm({...form,amount:e.target.value})} placeholder="0.00"/></div>
+          <div style={{marginBottom:10}}><div style={{fontSize:11,color:"var(--muted)",marginBottom:5,fontFamily:M}}>Foto de la factura</div><div style={{display:"flex",gap:10,alignItems:"center"}}><input ref={fRef} type="file" accept="image/*" capture="environment" onChange={hF} style={{fontSize:12,color:"var(--text)"}}/>{imgPrev&&<div style={{position:"relative"}}><img src={imgPrev} alt="p" style={{width:64,height:64,objectFit:"cover",borderRadius:"var(--r)",border:"2px solid var(--purp-bdr)"}}/><button onClick={()=>{setImg(null);setImgPrev(null);if(fRef.current)fRef.current.value="";}} style={{position:"absolute",top:-6,right:-6,background:"var(--dngr-bg)",color:"var(--dngr)",border:"none",borderRadius:"50%",width:18,height:18,cursor:"pointer",fontSize:12,fontWeight:700}}>×</button></div>}</div></div>
+          <Fld label="Proveedor / notas" value={form.notes} onChange={e=>setForm({...form,notes:e.target.value})} placeholder="Proveedor, # orden..."/>
+          <div style={{display:"flex",gap:8}}><Btn v="purp" onClick={saveP}>Guardar</Btn><Btn v="def" onClick={()=>{setAdding(false);setImg(null);setImgPrev(null);}}>Cancelar</Btn></div>
+        </div>}
+        {filt.length===0?<Empty msg="Sin compras registradas."/>:
+        <table style={{width:"100%",borderCollapse:"collapse"}}><thead><tr>{["Fecha","Proyecto","Categoría","Descripción","Monto","Foto",isMaster?"":""].map(h=><th key={h} style={TH}>{h}</th>)}</tr></thead>
+        <tbody>{filt.sort((a,b)=>b.date.localeCompare(a.date)).map(pu=>{const pj=projects.find(p=>p.id===pu.projectId);return<tr key={pu.id} onMouseOver={e=>e.currentTarget.style.background="var(--surf)"} onMouseOut={e=>e.currentTarget.style.background=""}><td style={{...TD,fontFamily:M,fontSize:11,color:"var(--muted)"}}>{pu.date}</td><td style={{...TD,fontSize:12,fontWeight:500}}>{pj?.name}</td><td style={TD}><span style={{background:"var(--purp-bg)",color:"var(--purp)",padding:"2px 8px",borderRadius:"var(--r)",fontSize:11,fontFamily:M,fontWeight:600}}>{pu.category}</span></td><td style={TD}><div style={{fontSize:12}}>{pu.description}</div>{pu.notes&&<div style={{fontSize:11,color:"var(--muted)",marginTop:2}}>{pu.notes}</div>}</td><td style={{...TD,fontFamily:M,fontWeight:700,color:"var(--purp)",fontSize:14}}>{f$(pu.amount)}</td><td style={TD}>{pu.receipt?<img src={pu.receipt} alt="f" onClick={()=>setViewImg(pu.receipt)} style={{width:44,height:44,objectFit:"cover",borderRadius:"var(--r)",cursor:"pointer",border:"2px solid var(--purp-bdr)"}}/>:<span style={{fontSize:11,color:"var(--muted)",fontStyle:"italic"}}>Sin foto</span>}</td>{isMaster&&<td style={TD}><Btn sm v="dngr" onClick={()=>{if(confirm("¿Eliminar?"))setPurchases(purchases.filter(p=>p.id!==pu.id));}} style={{padding:"1px 6px"}}>×</Btn></td>}</tr>;})}
+        </tbody><tfoot><tr style={{background:"var(--surf)"}}><td colSpan={4} style={{...TDF,textAlign:"right",fontFamily:M,fontSize:12,color:"var(--muted)",fontWeight:600}}>TOTAL</td><td style={{...TDF,fontFamily:M,fontWeight:700,fontSize:15,color:"var(--purp)"}}>{f$(totFilt)}</td><td colSpan={isMaster?2:1} style={TDF}/></tr></tfoot></table>}
+      </Card>
+    </>}
+    {view==="gastos"&&<>
+      <Kpi label="Total gastos generales" value={f$(totExp)} sub={expenses.length+" registro"+(expenses.length!==1?"s":"")} color="var(--teal)"/>
+      <div style={{height:12}}/>
+      <Card>
+        <SHead title="Gastos generales de operación" action={<Btn v="teal" sm onClick={()=>setAddingE(!addingE)}>+ Nuevo gasto</Btn>}/>
+        {addingE&&<div style={{padding:"16px 15px",background:"var(--teal-bg)",borderBottom:"1px solid var(--teal-bdr)"}}>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:8}}><Fld label="Fecha" type="date" value={eForm.date} onChange={e=>setEForm({...eForm,date:e.target.value})}/><Slct label="Categoría" value={eForm.category} onChange={e=>setEForm({...eForm,category:e.target.value})}>{GCATS.map(c=><option key={c}>{c}</option>)}</Slct></div>
+          <div style={{display:"grid",gridTemplateColumns:"2fr 1fr",gap:10,marginBottom:8}}><Fld label="Descripción" value={eForm.description} onChange={e=>setEForm({...eForm,description:e.target.value})} placeholder="Ej: Póliza seguro — Mayo 2026"/><Fld label="Monto ($)" type="number" value={eForm.amount} onChange={e=>setEForm({...eForm,amount:e.target.value})} placeholder="0.00"/></div>
+          <div style={{marginBottom:10}}><div style={{fontSize:11,color:"var(--muted)",marginBottom:5,fontFamily:M}}>Foto del recibo</div><div style={{display:"flex",gap:10,alignItems:"center"}}><input ref={eRef} type="file" accept="image/*" capture="environment" onChange={hEF} style={{fontSize:12,color:"var(--text)"}}/>{eImgPrev&&<div style={{position:"relative"}}><img src={eImgPrev} alt="p" style={{width:64,height:64,objectFit:"cover",borderRadius:"var(--r)",border:"2px solid var(--teal-bdr)"}}/><button onClick={()=>{setEImg(null);setEImgPrev(null);if(eRef.current)eRef.current.value="";}} style={{position:"absolute",top:-6,right:-6,background:"var(--dngr-bg)",color:"var(--dngr)",border:"none",borderRadius:"50%",width:18,height:18,cursor:"pointer",fontSize:12,fontWeight:700}}>×</button></div>}</div></div>
+          <Fld label="Notas" value={eForm.notes} onChange={e=>setEForm({...eForm,notes:e.target.value})} placeholder="Proveedor, número de póliza..."/>
+          <div style={{display:"flex",gap:8}}><Btn v="teal" onClick={saveE}>Guardar</Btn><Btn v="def" onClick={()=>{setAddingE(false);setEImg(null);setEImgPrev(null);}}>Cancelar</Btn></div>
+        </div>}
+        {expenses.length===0?<Empty msg="Sin gastos generales registrados."/>:
+        <table style={{width:"100%",borderCollapse:"collapse"}}><thead><tr>{["Fecha","Categoría","Descripción","Monto","Recibo",isMaster?"":""].map(h=><th key={h} style={TH}>{h}</th>)}</tr></thead>
+        <tbody>{expenses.sort((a,b)=>b.date.localeCompare(a.date)).map(ex=><tr key={ex.id} onMouseOver={e=>e.currentTarget.style.background="var(--surf)"} onMouseOut={e=>e.currentTarget.style.background=""}><td style={{...TD,fontFamily:M,fontSize:11,color:"var(--muted)"}}>{ex.date}</td><td style={TD}><span style={{background:"var(--teal-bg)",color:"var(--teal)",padding:"2px 8px",borderRadius:"var(--r)",fontSize:11,fontFamily:M,fontWeight:600}}>{ex.category}</span></td><td style={TD}><div style={{fontSize:12}}>{ex.description}</div>{ex.notes&&<div style={{fontSize:11,color:"var(--muted)",marginTop:2}}>{ex.notes}</div>}</td><td style={{...TD,fontFamily:M,fontWeight:700,color:"var(--teal)",fontSize:14}}>{f$(ex.amount)}</td><td style={TD}>{ex.receipt?<img src={ex.receipt} alt="r" onClick={()=>setViewImg(ex.receipt)} style={{width:44,height:44,objectFit:"cover",borderRadius:"var(--r)",cursor:"pointer",border:"2px solid var(--teal-bdr)"}}/>:<span style={{fontSize:11,color:"var(--muted)",fontStyle:"italic"}}>Sin foto</span>}</td>{isMaster&&<td style={TD}><Btn sm v="dngr" onClick={()=>{if(confirm("¿Eliminar?"))setExpenses(expenses.filter(e=>e.id!==ex.id));}} style={{padding:"1px 6px"}}>×</Btn></td>}</tr>)}
+        </tbody><tfoot><tr style={{background:"var(--surf)"}}><td colSpan={3} style={{...TDF,textAlign:"right",fontFamily:M,fontSize:12,color:"var(--muted)",fontWeight:600}}>TOTAL</td><td style={{...TDF,fontFamily:M,fontWeight:700,fontSize:15,color:"var(--teal)"}}>{f$(totExp)}</td><td colSpan={isMaster?2:1} style={TDF}/></tr></tfoot></table>}
+      </Card>
+    </>}
+    {viewImg&&<div onClick={()=>setViewImg(null)} style={{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.88)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:9998,cursor:"pointer"}}><div style={{position:"relative"}}><img src={viewImg} alt="r" style={{maxWidth:"90vw",maxHeight:"90vh",borderRadius:"var(--r)"}}/><button onClick={()=>setViewImg(null)} style={{position:"absolute",top:-12,right:-12,background:"var(--dngr-bg)",color:"var(--dngr)",border:"1px solid var(--dngr-bdr)",borderRadius:"50%",width:28,height:28,cursor:"pointer",fontSize:16,fontWeight:700}}>×</button></div></div>}
+  </div>);
+}
+
+/* ═══ DASHBOARD ═══ */
+function Dashboard({projects,timeEntries,workers,purchases,expenses,reimb}){
+  const[selPid,setSelPid]=useState(null);
+  const totalC=projects.reduce((s,p)=>s+p.contractValue,0);
+  const totalPaid=projects.reduce((s,p)=>s+p.payApps.filter(pa=>pa.status==="Paid").reduce((ss,pa)=>ss+pa.amount,0),0);
+  const totalSent=projects.reduce((s,p)=>s+p.payApps.filter(pa=>pa.status==="Sent").reduce((ss,pa)=>ss+pa.amount,0),0);
+  const labor=timeEntries.filter(e=>e.hours>0).reduce((s,e)=>{const w=workers.find(w=>w.id===e.workerId);return s+entryCost(e,w);},0);
+  const totMat=purchases.reduce((s,p)=>s+p.amount,0);const totExp=expenses.reduce((s,e)=>s+e.amount,0);
+  const pendReim=reimb.filter(r=>!r.invoiced).reduce((s,r)=>s+r.amount,0);
+  const pendCOs=projects.reduce((s,p)=>s+p.changeOrders.filter(c=>c.status==="Submitted").length,0);
+  const activeToday=new Set(timeEntries.filter(e=>e.date===TODAY&&(!e.clockOut||e.clockOut==="")).map(e=>e.workerId)).size;
+  const projFinancials=projects.map(p=>{
+    const ingresos=p.payApps.filter(pa=>pa.status==="Paid").reduce((s,pa)=>s+pa.amount,0);
+    const porCobrar=p.payApps.filter(pa=>pa.status==="Sent").reduce((s,pa)=>s+pa.amount,0);
+    const totalFacturado=p.payApps.reduce((s,pa)=>s+pa.amount,0);
+    const laborCost=timeEntries.filter(e=>e.projectId===p.id&&e.hours>0).reduce((s,e)=>{const w=workers.find(w=>w.id===e.workerId);return s+entryCost(e,w);},0);
+    const matCost=purchases.filter(pu=>pu.projectId===p.id).reduce((s,pu)=>s+pu.amount,0);
+    const reimbCost=reimb.filter(r=>r.projectId===p.id).reduce((s,r)=>s+r.amount,0);
+    const totalGastos=laborCost+matCost;const saldo=ingresos-totalGastos;
+    return{...p,ingresos,porCobrar,totalFacturado,laborCost,matCost,reimbCost,totalGastos,saldo};
+  });
+  const selProj=selPid?projFinancials.find(p=>p.id===selPid):null;
+  return<div>
+    <div style={{display:"grid",gridTemplateColumns:"repeat(2,minmax(0,1fr))",gap:10,marginBottom:16}}>
+      <Kpi label="Contrato total" value={f$(totalC)} sub={projects.length+" proyectos"}/>
+      <Kpi label="Cobrado (Paid)" value={f$(totalPaid)} sub={"Por cobrar: "+f$(totalSent)} color="var(--succ)"/>
+      <Kpi label="Reembolsables pendientes" value={f$(pendReim)} color="var(--orng)"/>
+      <Kpi label="Gastos operacionales" value={f$(labor+totMat+totExp)} sub={"Labor: "+f$(labor)+" · Mat: "+f$(totMat)} color="var(--purp)"/>
+    </div>
+    {(pendCOs>0||activeToday>0||pendReim>0)&&<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(220px,1fr))",gap:10,marginBottom:16}}>
+      {pendCOs>0&&<div style={{background:"var(--warn-bg)",border:"1px solid var(--warn-bdr)",borderRadius:"var(--r)",padding:"10px 15px",display:"flex",justifyContent:"space-between"}}><span style={{fontSize:13,color:"var(--warn)",fontWeight:600}}>{pendCOs} CO{pendCOs!==1?"s":""} pendiente{pendCOs!==1?"s":""}</span><span style={{fontSize:11,color:"var(--warn)",fontFamily:M}}>→ PayApps</span></div>}
+      {pendReim>0&&<div style={{background:"var(--orng-bg)",border:"1px solid var(--orng-bdr)",borderRadius:"var(--r)",padding:"10px 15px",display:"flex",justifyContent:"space-between"}}><span style={{fontSize:13,color:"var(--orng)",fontWeight:600}}>{f$(pendReim)} reembolsables sin facturar</span><span style={{fontSize:11,color:"var(--orng)",fontFamily:M}}>→ Reembolsables</span></div>}
+      {activeToday>0&&<div style={{background:"var(--succ-bg)",border:"1px solid var(--succ-bdr)",borderRadius:"var(--r)",padding:"10px 15px",display:"flex",justifyContent:"space-between"}}><span style={{fontSize:13,color:"var(--succ)",fontWeight:600}}>{activeToday} trabajador{activeToday!==1?"es":""} activo{activeToday!==1?"s":""}</span><span style={{fontSize:11,color:"var(--succ)",fontFamily:M}}>→ Personal</span></div>}
+    </div>}
+    <div style={{fontSize:12,color:"var(--muted)",marginBottom:10,fontFamily:M}}>Haz clic en un proyecto para ver el estado financiero detallado</div>
+    <div style={{display:"grid",gridTemplateColumns:"repeat("+Math.min(projects.length,3)+",minmax(0,1fr))",gap:12,marginBottom:16}}>
+      {projFinancials.map(p=>{const sel=selPid===p.id;const sPos=p.saldo>=0;return<div key={p.id} onClick={()=>setSelPid(sel?null:p.id)} style={{background:sel?"var(--info-bg)":"var(--bg)",border:sel?"1.5px solid var(--info-bdr)":"0.5px solid var(--bdr)",borderRadius:"var(--rLg)",padding:"16px",cursor:"pointer",boxShadow:"0 1px 4px rgba(0,0,0,0.06)",transition:"all 0.15s"}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:12}}>
+          <div><div style={{fontSize:15,fontWeight:700,marginBottom:3}}>{p.name}</div><div style={{fontSize:11,color:"var(--muted)"}}>{p.client||"Sin cliente"}</div></div>
+          <div style={{textAlign:"right"}}><div style={{fontSize:11,color:"var(--muted)",marginBottom:2}}>Saldo neto</div><div style={{fontSize:20,fontWeight:700,fontFamily:M,color:sPos?"var(--succ)":"var(--dngr)"}}>{f$(p.saldo)}</div></div>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginBottom:12}}>
+          <div style={{background:"var(--succ-bg)",borderRadius:"var(--r)",padding:"8px 10px"}}><div style={{fontSize:10,color:"var(--succ)",fontFamily:M,marginBottom:3}}>COBRADO</div><div style={{fontSize:15,fontWeight:700,fontFamily:M,color:"var(--succ)"}}>{f$(p.ingresos)}</div></div>
+          <div style={{background:"var(--orng-bg)",borderRadius:"var(--r)",padding:"8px 10px"}}><div style={{fontSize:10,color:"var(--orng)",fontFamily:M,marginBottom:3}}>POR COBRAR</div><div style={{fontSize:15,fontWeight:700,fontFamily:M,color:"var(--orng)"}}>{f$(p.porCobrar)}</div></div>
+          <div style={{background:"var(--dngr-bg)",borderRadius:"var(--r)",padding:"8px 10px"}}><div style={{fontSize:10,color:"var(--dngr)",fontFamily:M,marginBottom:3}}>GASTOS</div><div style={{fontSize:15,fontWeight:700,fontFamily:M,color:"var(--dngr)"}}>{f$(p.totalGastos)}</div></div>
+          <div style={{background:"var(--warn-bg)",borderRadius:"var(--r)",padding:"8px 10px"}}><div style={{fontSize:10,color:"var(--warn)",fontFamily:M,marginBottom:3}}>SIN FACTURAR</div><div style={{fontSize:15,fontWeight:700,fontFamily:M,color:"var(--warn)"}}>{f$(p.contractValue-p.totalFacturado)}</div></div>
+        </div>
+        <Bar value={p.ingresos} max={p.contractValue}/>
+        <div style={{fontSize:10,color:"var(--muted)",fontFamily:M,marginTop:4}}>{pct(p.ingresos,p.contractValue)}% cobrado del contrato ({f$(p.contractValue)})</div>
+      </div>;})}
+    </div>
+    {selProj&&<Card style={{marginBottom:16,border:"1.5px solid var(--info-bdr)"}}>
+      <SHead title={"📊 Estado financiero — "+selProj.name} action={<Btn sm v="def" onClick={()=>setSelPid(null)}>Cerrar</Btn>}/>
+      <div style={{padding:"18px"}}>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(4,minmax(0,1fr))",gap:10,marginBottom:16}}>
+          <Kpi label="Contrato" value={f$(selProj.contractValue)} sub={"Sin facturar: "+f$(selProj.contractValue-selProj.totalFacturado)}/>
+          <Kpi label="Total facturado" value={f$(selProj.totalFacturado)} sub={pct(selProj.totalFacturado,selProj.contractValue)+"% del contrato"} color="var(--warn)"/>
+          <Kpi label="Cobrado" value={f$(selProj.ingresos)} sub={"Por cobrar: "+f$(selProj.porCobrar)} color="var(--succ)"/>
+          <Kpi label="Saldo neto" value={f$(selProj.saldo)} sub={"Cobrado menos gastos"} color={selProj.saldo>=0?"var(--succ)":"var(--dngr)"}/>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
+          <div>
+            <div style={{fontWeight:600,fontSize:13,marginBottom:10,color:"var(--dngr)"}}>📤 Egresos / Gastos</div>
+            {[["Labor (nómina)",selProj.laborCost,"var(--warn)"],["Compras y materiales",selProj.matCost,"var(--purp)"],["Reembolsables (total)",selProj.reimbCost,"var(--orng)"]].map(([l,v,c])=><div key={l} style={{display:"flex",justifyContent:"space-between",padding:"8px 0",borderBottom:"0.5px solid var(--bdr)"}}><span style={{fontSize:13}}>{l}</span><span style={{fontFamily:M,fontWeight:600,color:c,fontSize:13}}>{f$(v)}</span></div>)}
+            <div style={{display:"flex",justifyContent:"space-between",padding:"10px 0",borderTop:"2px solid var(--dngr-bdr)",marginTop:4}}><span style={{fontSize:14,fontWeight:700}}>Total gastos</span><span style={{fontFamily:M,fontWeight:700,color:"var(--dngr)",fontSize:16}}>{f$(selProj.totalGastos)}</span></div>
+          </div>
+          <div>
+            <div style={{fontWeight:600,fontSize:13,marginBottom:10,color:"var(--succ)"}}>📥 Ingresos cobrados</div>
+            {selProj.payApps.filter(pa=>pa.status==="Paid").map(pa=><div key={pa.id} style={{display:"flex",justifyContent:"space-between",padding:"7px 0",borderBottom:"0.5px solid var(--bdr)"}}><div><div style={{fontSize:12}}>{pa.description}</div><div style={{fontSize:10,color:"var(--muted)",fontFamily:M}}>{pa.invNum} · {pa.date}</div></div><span style={{fontFamily:M,fontWeight:600,color:"var(--succ)",fontSize:13,flexShrink:0,marginLeft:12}}>{f$(pa.amount)}</span></div>)}
+            {selProj.payApps.filter(pa=>pa.status==="Paid").length===0&&<div style={{fontSize:12,color:"var(--muted)",fontStyle:"italic"}}>Sin cobros registrados.</div>}
+            <div style={{display:"flex",justifyContent:"space-between",padding:"10px 0",borderTop:"2px solid var(--succ-bdr)",marginTop:4}}><span style={{fontSize:14,fontWeight:700}}>Total cobrado</span><span style={{fontFamily:M,fontWeight:700,color:"var(--succ)",fontSize:16}}>{f$(selProj.ingresos)}</span></div>
+            <div style={{background:selProj.saldo>=0?"var(--succ-bg)":"var(--dngr-bg)",borderRadius:"var(--r)",padding:"12px 14px",marginTop:10,border:"1px solid "+(selProj.saldo>=0?"var(--succ-bdr)":"var(--dngr-bdr)")}}>
+              <div style={{fontSize:11,color:"var(--muted)",marginBottom:3}}>SALDO NETO (Cobrado − Gastos)</div>
+              <div style={{fontSize:24,fontWeight:700,fontFamily:M,color:selProj.saldo>=0?"var(--succ)":"var(--dngr)"}}>{f$(selProj.saldo)}</div>
+              {selProj.saldo<0&&<div style={{fontSize:11,color:"var(--dngr)",marginTop:4}}>⚠️ Los gastos superan lo cobrado en este proyecto.</div>}
+            </div>
+          </div>
+        </div>
+      </div>
+    </Card>}
+  </div>;
+}
+
+/* ═══ SETTINGS ═══ */
+function Settings({projects,setProjects,workers,setWorkers,onReset}){
+  const[np,setNp]=useState({name:"",code:"",client:"",address:"",email:"",contractValue:""});
+  const[nw,setNw]=useState({name:"",role:"Ayudante",appRole:"worker",payType:"hourly",hourlyRate:"",weeklyRate:""});
+  const[editId,setEditId]=useState(null);const[ep,setEp]=useState({});
+  const addProj=()=>{if(!np.name||!np.contractValue)return;setProjects([...projects,{id:Date.now(),name:np.name,code:(np.code||np.name.substring(0,2).toUpperCase()),client:np.client||"",contact:"",email:np.email||"",phone:"",address:np.address||"",contractValue:+np.contractValue,reimbSeq:0,payApps:[],changeOrders:[]}]);setNp({name:"",code:"",client:"",address:"",email:"",contractValue:""});};
+  const addWorker=()=>{if(!nw.name)return;if(nw.payType==="hourly"&&!nw.hourlyRate)return;if(nw.payType==="salary"&&!nw.weeklyRate)return;const w={id:Date.now(),name:nw.name,role:nw.role,appRole:nw.appRole,payType:nw.payType};if(nw.payType==="hourly"){w.hourlyRate=+nw.hourlyRate;w.weeklyRate=null;}else{w.weeklyRate=+nw.weeklyRate;w.hourlyRate=null;}setWorkers([...workers,w]);setNw({name:"",role:"Ayudante",appRole:"worker",payType:"hourly",hourlyRate:"",weeklyRate:""});};
+  const saveEdit=()=>{setProjects(projects.map(p=>p.id===editId?{...p,...ep,contractValue:ep.contractValue!==undefined?+ep.contractValue:p.contractValue}:p));setEditId(null);setEp({});};
+  return(<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
+    <Card><SHead title="Proyectos"/><div style={{padding:16}}>
+      {projects.map(p=><div key={p.id} style={{padding:"11px 13px",borderRadius:"var(--r)",border:editId===p.id?"1.5px solid var(--warn-bdr)":"0.5px solid var(--bdrMd)",marginBottom:9,background:editId===p.id?"#fffbf0":"var(--bg)"}}>
+        {editId===p.id?<div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:9}}><Fld label="Nombre" value={ep.name!==undefined?ep.name:p.name} onChange={e=>setEp({...ep,name:e.target.value})}/><Fld label="Código" value={ep.code!==undefined?ep.code:p.code} onChange={e=>setEp({...ep,code:e.target.value})}/></div>
+          <Fld label="Cliente" value={ep.client!==undefined?ep.client:p.client} onChange={e=>setEp({...ep,client:e.target.value})}/>
+          <Fld label="Dirección de facturación" value={ep.address!==undefined?ep.address:p.address} onChange={e=>setEp({...ep,address:e.target.value})}/>
+          <Fld label="Email del cliente" value={ep.email!==undefined?ep.email:p.email} onChange={e=>setEp({...ep,email:e.target.value})}/>
+          <Fld label="Valor del contrato ($)" type="number" value={ep.contractValue!==undefined?ep.contractValue:p.contractValue} onChange={e=>setEp({...ep,contractValue:e.target.value})}/>
+          <div style={{display:"flex",gap:7}}><Btn v="succ" sm onClick={saveEdit}>Guardar</Btn><Btn v="def" sm onClick={()=>{setEditId(null);setEp({});}}>Cancelar</Btn></div>
+        </div>:<div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+          <div><div style={{fontSize:14,fontWeight:600,marginBottom:2}}>{p.name} <span style={{fontFamily:M,fontSize:11,color:"var(--muted)"}}>({p.code})</span></div>{p.client&&<div style={{fontSize:12,color:"var(--muted)"}}>{p.client}</div>}{p.address&&<div style={{fontSize:11,color:"var(--muted)"}}>{p.address}</div>}<div style={{fontSize:13,fontFamily:M,fontWeight:700,color:"var(--warn)",marginTop:2}}>{f$(p.contractValue)}</div></div>
+          <div style={{display:"flex",gap:6}}><Btn sm v="def" onClick={()=>{setEditId(p.id);setEp({});}}>Editar</Btn><Btn sm v="dngr" onClick={()=>{if(confirm("¿Eliminar "+p.name+"?"))setProjects(projects.filter(pr=>pr.id!==p.id));}}>×</Btn></div>
+        </div>}
+      </div>)}
+      <div style={{marginTop:14,paddingTop:14,borderTop:"0.5px solid var(--bdr)"}}>
+        <div style={{fontSize:10,color:"var(--muted)",fontFamily:M,marginBottom:10,letterSpacing:"0.07em",textTransform:"uppercase"}}>Agregar proyecto</div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:9}}><Fld label="Nombre" value={np.name} onChange={e=>setNp({...np,name:e.target.value})} placeholder="Ej: Wynwood Phase 1"/><Fld label="Código" value={np.code} onChange={e=>setNp({...np,code:e.target.value})} placeholder="Ej: WY1"/></div>
+        <Fld label="Cliente" value={np.client} onChange={e=>setNp({...np,client:e.target.value})} placeholder="Nombre del cliente"/>
+        <Fld label="Dirección de facturación" value={np.address} onChange={e=>setNp({...np,address:e.target.value})} placeholder="123 Main St, Miami FL"/>
+        <Fld label="Email del cliente" value={np.email} onChange={e=>setNp({...np,email:e.target.value})} placeholder="cliente@email.com"/>
+        <Fld label="Valor del contrato ($)" type="number" value={np.contractValue} onChange={e=>setNp({...np,contractValue:e.target.value})} placeholder="0.00"/>
+        <Btn v="amber" onClick={addProj} style={{width:"100%",marginTop:4}}>+ Agregar proyecto</Btn>
+      </div>
+    </div></Card>
+    <div>
+      <Card style={{marginBottom:14}}><SHead title="Nómina del personal"/><div style={{padding:16}}>
+        {workers.map(w=><div key={w.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"9px 11px",borderRadius:"var(--r)",border:"0.5px solid var(--bdrMd)",marginBottom:7}}>
+          <div><div style={{fontSize:13,fontWeight:600,marginBottom:3,display:"flex",gap:7,alignItems:"center"}}>{w.name}{w.appRole!=="worker"&&<Badge status={w.appRole==="supervisor"?"Pending":"Enviado"} label={w.appRole==="supervisor"?"Supervisor":"Foreman"}/>}</div><div style={{display:"flex",gap:7,alignItems:"center"}}><span style={{fontSize:11,color:"var(--muted)"}}>{w.role}</span>{w.payType==="salary"?<Badge status="Salario" label={f$(w.weeklyRate)+"/sem"}/>:<Badge status="Hora" label={"$"+w.hourlyRate+"/hr"}/>}</div></div>
+          <Btn sm v="dngr" onClick={()=>{if(confirm("¿Eliminar a "+w.name+"?"))setWorkers(workers.filter(wo=>wo.id!==w.id));}}>×</Btn>
+        </div>)}
+        <div style={{marginTop:14,paddingTop:14,borderTop:"0.5px solid var(--bdr)"}}>
+          <div style={{fontSize:10,color:"var(--muted)",fontFamily:M,marginBottom:10,letterSpacing:"0.07em",textTransform:"uppercase"}}>Agregar trabajador</div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:9}}><Fld label="Nombre completo" value={nw.name} onChange={e=>setNw({...nw,name:e.target.value})} placeholder="Nombre"/><Slct label="Cargo" value={nw.role} onChange={e=>setNw({...nw,role:e.target.value})}>{["Foreman","Carpintero","Ayudante","Cabillero","Electrician","Plumber","Mason","General"].map(r=><option key={r}>{r}</option>)}</Slct></div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:9}}><Slct label="Acceso en app" value={nw.appRole} onChange={e=>setNw({...nw,appRole:e.target.value})}><option value="worker">Sin acceso</option><option value="foreman">Foreman</option><option value="supervisor">Supervisor</option></Slct><Slct label="Tipo de pago" value={nw.payType} onChange={e=>setNw({...nw,payType:e.target.value,hourlyRate:"",weeklyRate:""})}><option value="hourly">Por hora ($/hr)</option><option value="salary">Salario semanal</option></Slct></div>
+          {nw.payType==="hourly"&&<Fld label="Tarifa ($/hr)" type="number" value={nw.hourlyRate} onChange={e=>setNw({...nw,hourlyRate:e.target.value})} placeholder="0.00"/>}
+          {nw.payType==="salary"&&<Fld label="Salario semanal ($)" type="number" value={nw.weeklyRate} onChange={e=>setNw({...nw,weeklyRate:e.target.value})} placeholder="Ej: 1400"/>}
+          <Btn v="amber" onClick={addWorker} style={{width:"100%",marginTop:4}}>+ Agregar trabajador</Btn>
+        </div>
+      </div></Card>
+      <Card style={{padding:16}}>
+        <div style={{fontWeight:600,fontSize:14,marginBottom:5}}>Datos y notificaciones</div>
+        <div style={{background:"var(--info-bg)",border:"0.5px solid var(--info-bdr)",borderRadius:"var(--r)",padding:"10px 13px",fontSize:12,color:"var(--info)",marginBottom:14}}>
+          🔔 Lun–Sáb 8:30am · Lun–Vie 5pm/7pm · Sáb 1pm/3pm
+        </div>
+        <div style={{display:"flex",gap:9,flexWrap:"wrap"}}>
+          <Btn v="info" onClick={()=>{if("Notification"in window)Notification.requestPermission().then(p=>{if(p==="granted")try{new Notification("N&W Admin ✓",{body:"Notificaciones activadas."});}catch(e){}});}}>🔔 Activar notificaciones</Btn>
+          <Btn v="amber" onClick={()=>{const d={projects,workers};const b=new Blob([JSON.stringify(d,null,2)],{type:"application/json"});const u=URL.createObjectURL(b);const a=document.createElement("a");a.href=u;a.download="nw-backup-"+TODAY+".json";a.click();URL.revokeObjectURL(u);}}>Exportar JSON</Btn>
+          <Btn v="dngr" onClick={()=>{if(confirm("¿Resetear a datos originales?"))onReset();}}>Resetear</Btn>
+        </div>
+      </Card>
+    </div>
+  </div>);
+}
+
+/* ═══ APP ═══ */
+function App(){
+  const[loaded,setLoaded]=useState(false);const[saving,setSaving]=useState(false);const[savedOk,setSavedOk]=useState(false);
+  const[tab,setTab]=useState("dashboard");const[role,setRole]=useState("master");
+  const[projects,setProjects]=useState(DEFAULT_PROJECTS);const[estimates,setEstimates]=useState(DEFAULT_ESTIMATES);const[workers,setWorkers]=useState(DEFAULT_WORKERS);const[timeEntries,setTimeEntries]=useState(DEFAULT_ENTRIES);const[purchases,setPurchases]=useState(DEFAULT_PURCHASES);const[expenses,setExpenses]=useState(DEFAULT_EXPENSES);const[pending,setPending]=useState(DEFAULT_PENDING);const[reimb,setReimb]=useState(DEFAULT_REIMB);
+  const timer=useRef(null);
+  const{toasts,addToast}=useNotifications(timeEntries);
+  useEffect(()=>{
+    const load=async()=>{
+      try{
+        // Map: supabase key → [setter, old localStorage key]
+        const keys=[
+          ["projects",  setProjects,  "nw82:p"],
+          ["estimates", setEstimates, "nw82:e"],
+          ["workers",   setWorkers,   "nw82:w"],
+          ["timeEntries",setTimeEntries,"nw82:t"],
+          ["purchases", setPurchases, "nw82:pu"],
+          ["expenses",  setExpenses,  "nw82:ex"],
+          ["pending",   setPending,   "nw82:pw"],
+          ["reimb",     setReimb,     "nw82:rm"],
+        ];
+        let needsMigration=false;
+        await Promise.all(keys.map(async([k,setter,oldKey])=>{
+          // 1. Try Supabase first
+          const sbVal=await sbGet(k);
+          if(sbVal&&Array.isArray(sbVal)&&sbVal.length>0){
+            setter(sbVal);
+            return;
+          }
+          // 2. Supabase empty — check old localStorage for migration
+          try{
+            const lsVal=localStorage.getItem(oldKey);
+            if(lsVal){
+              const parsed=JSON.parse(lsVal);
+              if(Array.isArray(parsed)&&parsed.length>0){
+                setter(parsed);
+                // Save to Supabase (migration)
+                await sbSet(k,parsed);
+                needsMigration=true;
+                console.log("Migrated",k,"to Supabase:",parsed.length,"items");
+              }
+            }
+          }catch(e){console.error("Migration error for",k,e);}
+        }));
+        if(needsMigration)console.log("✅ Data migrated from localStorage to Supabase");
+      }catch(e){console.error("Load error:",e);}
+      setLoaded(true);
+    };
+    load();
+    // Real-time sync: when another device saves, reload that key
+    const channel=sb.channel("nw_admin_sync")
+      .on("postgres_changes",{event:"UPDATE",schema:"public",table:"app_data"},(payload)=>{
+        const{key,value}=payload.new;
+        const map={projects:setProjects,estimates:setEstimates,workers:setWorkers,timeEntries:setTimeEntries,purchases:setPurchases,expenses:setExpenses,pending:setPending,reimb:setReimb};
+        if(map[key]&&Array.isArray(value))map[key](value);
+      })
+      .subscribe();
+    return()=>sb.removeChannel(channel);
+  },[]);
+  useEffect(()=>{
+    if(!loaded)return;
+    if(timer.current)clearTimeout(timer.current);
+    setSaving(true);setSavedOk(false);
+    timer.current=setTimeout(async()=>{
+      try{
+        await Promise.all([
+          sbSet("projects",projects),
+          sbSet("estimates",estimates),
+          sbSet("workers",workers),
+          sbSet("timeEntries",timeEntries),
+          sbSet("purchases",purchases),
+          sbSet("expenses",expenses),
+          sbSet("pending",pending),
+          sbSet("reimb",reimb),
+        ]);
+        // Also keep localStorage as backup
+        [["nw82:p",projects],["nw82:e",estimates],["nw82:w",workers],["nw82:t",timeEntries],["nw82:pu",purchases],["nw82:ex",expenses],["nw82:pw",pending],["nw82:rm",reimb]].forEach(([k,v])=>{try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}});
+        setSaving(false);setSavedOk(true);
+        setTimeout(()=>setSavedOk(false),2500);
+      }catch(e){console.error("Save error:",e);setSaving(false);}
+    },800);
+  },[projects,estimates,workers,timeEntries,purchases,expenses,pending,reimb,loaded]);
+  const reset=()=>{setProjects(DEFAULT_PROJECTS);setEstimates(DEFAULT_ESTIMATES);setWorkers(DEFAULT_WORKERS);setTimeEntries(DEFAULT_ENTRIES);setPurchases(DEFAULT_PURCHASES);setExpenses(DEFAULT_EXPENSES);setPending(DEFAULT_PENDING);setReimb(DEFAULT_REIMB);};
+  const pendCount=pending.length;const pendReimCount=reimb.filter(r=>!r.invoiced).length;
+  const tabsByRole={
+    master:[{id:"dashboard",label:"Dashboard"},{id:"payapps",label:"PayApps & Invoices"},{id:"estimates",label:"Presupuestos"},{id:"personnel",label:"Personal",badge:pendCount},{id:"reimb",label:"Reembolsables",badge:pendReimCount},{id:"compras",label:"Compras & Gastos"},{id:"settings",label:"Configuración"}],
+    supervisor:[{id:"personnel",label:"Time Clock",badge:pendCount},{id:"reimb",label:"Reembolsables",badge:pendReimCount},{id:"compras",label:"Compras & Gastos"}],
+    foreman:[{id:"personnel",label:"Time Clock",badge:pendCount}],
+  };
+  const visTabs=tabsByRole[role]||tabsByRole.foreman;const cur=visTabs.some(t=>t.id===tab)?tab:visTabs[0]?.id;const rc=ROLES[role];
+  if(!loaded)return<div style={{display:"flex",alignItems:"center",justifyContent:"center",minHeight:"70vh",flexDirection:"column",gap:12,color:"var(--muted)",fontFamily:M,fontSize:14}}><div style={{width:32,height:32,borderRadius:"50%",border:"3px solid var(--warn-bg)",borderTopColor:"var(--warn-bdr)",animation:"spin 0.8s linear infinite"}}/><span>Cargando N&W Administración...</span></div>;
+  const isMob=typeof window!=="undefined"&&window.innerWidth<640;
+  const tabIcons={dashboard:"🏠",payapps:"📄",estimates:"📋",personnel:"⏱",reimb:"🧾",compras:"🛒",settings:"⚙️"};
+  return<div style={{fontFamily:"-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif",color:"var(--text)"}}>
+    <Toasts toasts={toasts}/>
+    {/* DESKTOP NAV */}
+    <div style={{background:"var(--bg)",border:"0.5px solid var(--bdr)",borderRadius:"var(--rLg)",marginBottom:18,padding:"0 18px",display:"flex",alignItems:"center",minHeight:52,boxShadow:"0 2px 8px rgba(0,0,0,0.07)",position:"sticky",top:0,zIndex:100,flexWrap:"nowrap"}}>
+      <div style={{fontFamily:M,fontWeight:700,fontSize:15,color:"var(--warn)",marginRight:16,letterSpacing:"0.06em",whiteSpace:"nowrap",flexShrink:0}}>N&W</div>
+      <div style={{display:"flex",flex:1,gap:0,overflowX:"auto",msOverflowStyle:"none",scrollbarWidth:"none"}}>
+        {visTabs.map(t=><div key={t.id} onClick={()=>setTab(t.id)} style={{padding:"0 10px",height:52,display:"flex",alignItems:"center",gap:4,cursor:"pointer",fontSize:12,fontWeight:cur===t.id?600:400,color:cur===t.id?rc.color:"var(--muted)",borderBottomWidth:"2.5px",borderBottomStyle:"solid",borderBottomColor:cur===t.id?rc.color:"transparent",transition:"all 0.15s",whiteSpace:"nowrap",flexShrink:0}}>
+          <span style={{display:"none"}}>{tabIcons[t.id]||""}</span>
+          {t.label}{t.badge>0&&<span style={{background:"var(--dngr-bg)",color:"var(--dngr)",borderRadius:10,padding:"1px 5px",fontSize:10,fontWeight:700,fontFamily:M}}>{t.badge}</span>}
+        </div>)}
+      </div>
+      <div style={{display:"flex",alignItems:"center",gap:8,flexShrink:0}}>
+        <div style={{fontSize:10,fontFamily:M,color:saving?"var(--warn)":savedOk?"var(--succ)":"var(--muted)",display:"flex",alignItems:"center",gap:4}}>
+          <span style={{display:"inline-block",width:6,height:6,borderRadius:"50%",background:saving?"var(--warn-bdr)":savedOk?"var(--succ-bdr)":"var(--bdrMd)",animation:saving?"pulse 0.7s ease infinite":"none"}}/>
+          {saving?"...":savedOk?"✓":""}
+        </div>
+        <div style={{display:"flex",border:"0.5px solid var(--bdrMd)",borderRadius:"var(--r)",overflow:"hidden"}}>
+          {Object.entries(ROLES).map(([k,v],i,arr)=><div key={k} onClick={()=>{setRole(k);setTab(tabsByRole[k][0].id);}} style={{padding:"5px 8px",cursor:"pointer",fontSize:11,fontFamily:M,fontWeight:600,background:role===k?v.bg:"transparent",color:role===k?v.color:"var(--muted)",transition:"all 0.15s",borderRight:i<arr.length-1?"0.5px solid var(--bdrMd)":"none"}}>{v.label}</div>)}
+        </div>
+      </div>
+    </div>
+    {/* PAGE CONTENT */}
+    
+    {cur==="dashboard"&&<Dashboard projects={projects} timeEntries={timeEntries} workers={workers} purchases={purchases} expenses={expenses} reimb={reimb}/>}
+    {cur==="payapps"&&<PayApps projects={projects} setProjects={setProjects} role={role}/>}
+    {cur==="estimates"&&<Estimates estimates={estimates} setEstimates={setEstimates} role={role}/>}
+    {cur==="personnel"&&<Personnel projects={projects} workers={workers} setWorkers={setWorkers} pending={pending} setPending={setPending} timeEntries={timeEntries} setTimeEntries={setTimeEntries} role={role} addToast={addToast}/>}
+    {cur==="reimb"&&<Reimbursables projects={projects} setProjects={setProjects} reimb={reimb} setReimb={setReimb} role={role}/>}
+    {cur==="compras"&&<Compras projects={projects} purchases={purchases} setPurchases={setPurchases} expenses={expenses} setExpenses={setExpenses} role={role}/>}
+    {cur==="settings"&&<Settings projects={projects} setProjects={setProjects} workers={workers} setWorkers={setWorkers} onReset={reset}/>}
+      <div style={{marginTop:32,paddingTop:16,borderTop:"0.5px solid var(--bdr)",textAlign:"center",fontSize:11,color:"var(--muted)",fontFamily:M}}>N&W Construction Corp · v9.0 — Cloud ☁️</div>
+    </div>
+    {/* MOBILE BOTTOM NAV */}
+    <div style={{position:"fixed",bottom:0,left:0,right:0,background:"var(--bg)",borderTop:"1px solid var(--bdr)",display:"flex",zIndex:200,boxShadow:"0 -2px 12px rgba(0,0,0,0.08)",padding:"4px 0 env(safe-area-inset-bottom)"}}>
+      {visTabs.slice(0,Math.min(visTabs.length,5)).map(t=>{const icons={dashboard:"🏠",payapps:"📄",estimates:"📋",personnel:"⏱",reimb:"🧾",compras:"🛒",settings:"⚙️"};return<div key={t.id} onClick={()=>setTab(t.id)} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"6px 2px",cursor:"pointer",position:"relative"}}>
+        <div style={{fontSize:20,marginBottom:2,filter:cur===t.id?"none":"grayscale(1)",opacity:cur===t.id?1:0.5}}>{icons[t.id]||"•"}</div>
+        <div style={{fontSize:9,fontFamily:M,fontWeight:600,color:cur===t.id?rc.color:"var(--muted)",textAlign:"center",lineHeight:1.2}}>{t.label.split(" ")[0]}</div>
+        {t.badge>0&&<span style={{position:"absolute",top:4,right:"20%",background:"var(--dngr-bdr)",color:"white",borderRadius:"50%",width:16,height:16,display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,fontWeight:700}}>{t.badge}</span>}
+      </div>;})}
+      {visTabs.length>5&&<div onClick={()=>setTab(visTabs[5]?.id)} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"6px 2px",cursor:"pointer"}}>
+        <div style={{fontSize:20,marginBottom:2,opacity:0.5}}>⚙️</div>
+        <div style={{fontSize:9,fontFamily:M,color:"var(--muted)"}}>Más</div>
+      </div>}
+    </div>
+  </div>;
+}
+ReactDOM.render(<App/>,document.getElementById("root"));
+</script>
+</body>
+</html>
