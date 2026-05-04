@@ -1201,6 +1201,15 @@ function Settings({projects,setProjects,workers,setWorkers,onReset}){
         </div>
       </div></Card>
       <Card style={{padding:16}}>
+        <div style={{fontWeight:600,fontSize:14,marginBottom:12}}>PINs de acceso</div>
+        <div style={{background:"var(--info-bg)",border:"0.5px solid var(--info-bdr)",borderRadius:"var(--r)",padding:"10px 13px",fontSize:12,color:"var(--info)",marginBottom:10}}>
+          🔐 Cambia los PINs de cada usuario. Comparte el PIN con cada persona para que puedan entrar desde su celular.
+        </div>
+        {pinUsers.map((u,i)=><div key={u.id} style={{display:"flex",alignItems:"center",gap:10,marginBottom:8,padding:"10px 12px",background:"var(--surf)",borderRadius:"var(--r)",border:"0.5px solid var(--bdrMd)"}}>
+          <div style={{flex:1}}><div style={{fontSize:13,fontWeight:600}}>{u.name}</div><div style={{fontSize:11,color:"var(--muted)"}}>{ROLES[u.role]?.label}</div></div>
+          <input type="text" maxLength={4} value={u.pin} onChange={e=>{const newUsers=[...pinUsers];newUsers[i]={...u,pin:e.target.value.replace(/\D/g,"").slice(0,4)};setPinUsers(newUsers);localStorage.setItem("nw:users",JSON.stringify(newUsers));}} style={{width:70,background:"var(--bg)",border:"1px solid var(--warn-bdr)",color:"var(--warn)",padding:"6px 10px",borderRadius:"var(--r)",fontSize:16,fontFamily:M,fontWeight:700,textAlign:"center",outline:"none"}}/>
+        </div>)}
+        <div style={{height:16}}/>
         <div style={{fontWeight:600,fontSize:14,marginBottom:5}}>Datos y notificaciones</div>
         <div style={{background:"var(--info-bg)",border:"0.5px solid var(--info-bdr)",borderRadius:"var(--r)",padding:"10px 13px",fontSize:12,color:"var(--info)",marginBottom:14}}>
           🔔 Lun–Sáb 8:30am · Lun–Vie 5pm/7pm · Sáb 1pm/3pm
@@ -1216,12 +1225,61 @@ function Settings({projects,setProjects,workers,setWorkers,onReset}){
 }
 
 /* ═══ APP ═══ */
+/* ─── PIN LOGIN ─── */
+const DEFAULT_USERS=[
+  {id:"u1",name:"Hansel",role:"master", pin:"1234"},
+  {id:"u2",name:"Noel",  role:"supervisor",pin:"5678"},
+  {id:"u3",name:"Jackson",role:"foreman",pin:"9012"},
+  {id:"u4",name:"Eddy",  role:"foreman",pin:"3456"},
+];
+function LoginScreen({onLogin}){
+  const[pin,setPin]=useState("");
+  const[err,setErr]=useState("");
+  const[users,setUsers]=useState(DEFAULT_USERS);
+  useEffect(()=>{try{const u=localStorage.getItem("nw:users");if(u)setUsers(JSON.parse(u));}catch(e){}});
+  const handlePin=(d)=>{
+    const newPin=pin+d;
+    setPin(newPin);setErr("");
+    if(newPin.length===4){
+      const user=users.find(u=>u.pin===newPin);
+      if(user)onLogin(user);
+      else{setErr("PIN incorrecto");setTimeout(()=>{setPin("");setErr("");},1200);}
+    }
+  };
+  const del=()=>setPin(p=>p.slice(0,-1));
+  return<div style={{minHeight:"100vh",background:"var(--page)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:24}}>
+    <div style={{background:"var(--bg)",borderRadius:24,padding:"32px 28px",width:"100%",maxWidth:340,boxShadow:"0 8px 32px rgba(0,0,0,0.12)"}}>
+      <div style={{textAlign:"center",marginBottom:32}}>
+        <div style={{fontSize:36,marginBottom:8}}>🏗️</div>
+        <div style={{fontFamily:"'SF Mono','Fira Code',monospace",fontWeight:700,fontSize:22,color:"var(--warn)",letterSpacing:"0.05em"}}>N&W Admin</div>
+        <div style={{fontSize:13,color:"var(--muted)",marginTop:4}}>Ingresa tu PIN de acceso</div>
+      </div>
+      <div style={{display:"flex",justifyContent:"center",gap:12,marginBottom:24}}>
+        {[0,1,2,3].map(i=><div key={i} style={{width:16,height:16,borderRadius:"50%",background:pin.length>i?"var(--warn-bdr)":"var(--bdr)",border:"2px solid "+(pin.length>i?"var(--warn-bdr)":"var(--bdrMd)"),transition:"all 0.2s"}}/>)}
+      </div>
+      {err&&<div style={{textAlign:"center",color:"var(--dngr)",fontSize:13,marginBottom:16,fontWeight:600}}>{err}</div>}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10}}>
+        {[1,2,3,4,5,6,7,8,9,"",0,"⌫"].map((d,i)=><button key={i} onClick={()=>d==="⌫"?del():d!==""&&handlePin(String(d))} style={{padding:"18px 0",fontSize:d==="⌫"?20:22,fontWeight:600,background:d===""?"transparent":"var(--surf)",border:"0.5px solid "+(d===""?"transparent":"var(--bdrMd)"),borderRadius:14,cursor:d===""?"default":"pointer",color:d==="⌫"?"var(--dngr)":"var(--text)",fontFamily:"'SF Mono',monospace",transition:"all 0.1s"}}>{d}</button>)}
+      </div>
+      <div style={{marginTop:24,paddingTop:20,borderTop:"0.5px solid var(--bdr)",fontSize:11,color:"var(--muted)",textAlign:"center"}}>
+        PIN por defecto: Hansel=1234 · Noel=5678<br/>Jackson=9012 · Eddy=3456
+      </div>
+    </div>
+  </div>;
+}
+
 function App(){
   const[loaded,setLoaded]=useState(false);const[saving,setSaving]=useState(false);const[savedOk,setSavedOk]=useState(false);
+  const[loggedUser,setLoggedUser]=useState(null);
   const[tab,setTab]=useState("dashboard");const[role,setRole]=useState("master");
   const[projects,setProjects]=useState(DEFAULT_PROJECTS);const[estimates,setEstimates]=useState(DEFAULT_ESTIMATES);const[workers,setWorkers]=useState(DEFAULT_WORKERS);const[timeEntries,setTimeEntries]=useState(DEFAULT_ENTRIES);const[purchases,setPurchases]=useState(DEFAULT_PURCHASES);const[expenses,setExpenses]=useState(DEFAULT_EXPENSES);const[pending,setPending]=useState(DEFAULT_PENDING);const[reimb,setReimb]=useState(DEFAULT_REIMB);
   const timer=useRef(null);
   const{toasts,addToast}=useNotifications(timeEntries);
+  // PIN users stored locally
+  const[pinUsers,setPinUsers]=useState(DEFAULT_USERS);
+  useEffect(()=>{try{const u=localStorage.getItem("nw:users");if(u)setPinUsers(JSON.parse(u));}catch(e){}});
+  const handleLogin=(user)=>{setLoggedUser(user);setRole(user.role);setTab(tabsByRole[user.role]?.[0]?.id||"dashboard");};
+  const handleLogout=()=>{setLoggedUser(null);setRole("master");setTab("dashboard");};
   useEffect(()=>{
     const load=async()=>{
       try{
@@ -1305,6 +1363,13 @@ function App(){
     foreman:[{id:"personnel",label:"Time Clock",badge:pendCount}],
   };
   const visTabs=tabsByRole[role]||tabsByRole.foreman;const cur=visTabs.some(t=>t.id===tab)?tab:visTabs[0]?.id;const rc=ROLES[role];
+  // Build tabsByRole early so handleLogin can use it
+  const tabsByRoleEarly={
+    master:[{id:"dashboard"},{id:"payapps"},{id:"estimates"},{id:"personnel"},{id:"reimb"},{id:"compras"},{id:"settings"}],
+    supervisor:[{id:"personnel"},{id:"reimb"},{id:"compras"}],
+    foreman:[{id:"personnel"}],
+  };
+  if(!loggedUser)return<LoginScreen onLogin={handleLogin}/>;
   if(!loaded)return<div style={{display:"flex",alignItems:"center",justifyContent:"center",minHeight:"70vh",flexDirection:"column",gap:12,color:"var(--muted)",fontFamily:M,fontSize:14}}><div style={{width:32,height:32,borderRadius:"50%",border:"3px solid var(--warn-bg)",borderTopColor:"var(--warn-bdr)",animation:"spin 0.8s linear infinite"}}/><span>Cargando N&W Administración...</span></div>;
   const isMob=typeof window!=="undefined"&&window.innerWidth<640;
   const tabIcons={dashboard:"🏠",payapps:"📄",estimates:"📋",personnel:"⏱",reimb:"🧾",compras:"🛒",settings:"⚙️"};
@@ -1324,8 +1389,11 @@ function App(){
           <span style={{display:"inline-block",width:6,height:6,borderRadius:"50%",background:saving?"var(--warn-bdr)":savedOk?"var(--succ-bdr)":"var(--bdrMd)",animation:saving?"pulse 0.7s ease infinite":"none"}}/>
           {saving?"...":savedOk?"✓":""}
         </div>
-        <div style={{display:"flex",border:"0.5px solid var(--bdrMd)",borderRadius:"var(--r)",overflow:"hidden"}}>
-          {Object.entries(ROLES).map(([k,v],i,arr)=><div key={k} onClick={()=>{setRole(k);setTab(tabsByRole[k][0].id);}} style={{padding:"5px 8px",cursor:"pointer",fontSize:11,fontFamily:M,fontWeight:600,background:role===k?v.bg:"transparent",color:role===k?v.color:"var(--muted)",transition:"all 0.15s",borderRight:i<arr.length-1?"0.5px solid var(--bdrMd)":"none"}}>{v.label}</div>)}
+        <div style={{display:"flex",alignItems:"center",gap:8}}>
+          <div style={{background:ROLES[role]?.bg,color:ROLES[role]?.color,padding:"4px 10px",borderRadius:"var(--r)",fontSize:11,fontFamily:M,fontWeight:600,border:"0.5px solid var(--bdrMd)"}}>
+            {loggedUser?.name||"—"} · {ROLES[role]?.label}
+          </div>
+          <button onClick={handleLogout} style={{background:"var(--dngr-bg)",color:"var(--dngr)",border:"0.5px solid var(--dngr-bdr)",borderRadius:"var(--r)",padding:"4px 10px",fontSize:11,fontFamily:M,fontWeight:600,cursor:"pointer"}}>Salir</button>
         </div>
       </div>
     </div>
