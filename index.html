@@ -1,0 +1,1041 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#ea580c">
+<title>N&W Admin</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html{font-size:16px}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f1f5f9;color:#0f172a;min-height:100vh;overscroll-behavior:none}
+input,select,textarea,button{font-family:inherit;font-size:16px}
+input:focus,select:focus,textarea:focus{outline:none}
+::-webkit-scrollbar{display:none}
+:root{
+  --orange:#ea580c;--orange-l:#fff7ed;--orange-b:#fed7aa;--orange-d:#9a3412;
+  --blue:#2563eb;--blue-l:#eff6ff;--blue-b:#bfdbfe;
+  --green:#16a34a;--green-l:#f0fdf4;--green-b:#bbf7d0;
+  --red:#dc2626;--red-l:#fef2f2;--red-b:#fecaca;
+  --purple:#7c3aed;--purple-l:#f5f3ff;--purple-b:#ddd6fe;
+  --slate:#64748b;--slate-l:#f8fafc;--slate-b:#e2e8f0;
+  --bg:#ffffff;--surface:#f8fafc;--border:#e2e8f0;--text:#0f172a;--muted:#64748b;
+  --r:12px;--rLg:16px;--rXl:20px;
+  --shadow:0 1px 3px rgba(0,0,0,0.1),0 1px 2px rgba(0,0,0,0.06);
+  --shadow-md:0 4px 6px rgba(0,0,0,0.07),0 2px 4px rgba(0,0,0,0.06);
+  --shadow-lg:0 10px 15px rgba(0,0,0,0.1),0 4px 6px rgba(0,0,0,0.05);
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes fadeIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
+.fade{animation:fadeIn 0.25s ease}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js" crossorigin></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js" crossorigin></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js" crossorigin></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" crossorigin></script>
+<script type="text/babel">
+const {useState,useEffect,useRef,useMemo,useCallback}=React;
+
+/* ─── SUPABASE ─── */
+const SB_URL="https://hkenlrtsqjvkaibxffaq.supabase.co";
+const SB_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhrZW5scnRzcWp2a2FpYnhmZmFxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc1ODU3OTksImV4cCI6MjA5MzE2MTc5OX0.09N5HoB3vFf5r1G149w97nK1DaSdMlhtKKIHdi3p6Qo";
+const sb=supabase.createClient(SB_URL,SB_KEY);
+const sbGet=async(key)=>{try{const{data,error}=await sb.from("app_data").select("value").eq("key",key).single();if(error||!data)return null;return data.value;}catch(e){return null;}};
+const sbSet=async(key,value)=>{try{await sb.from("app_data").upsert({key,value,updated_at:new Date().toISOString()},{onConflict:"key"});}catch(e){}};
+
+/* ─── CONSTANTS ─── */
+const TODAY=new Date().toISOString().split("T")[0];
+const M="'SF Mono','Fira Code',monospace";
+const f$=n=>"$"+Number(n||0).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});
+const pct=(a,b)=>b>0?Math.min(100,Math.round(a/b*100)):0;
+
+const DEFAULT_PINS=[
+  {id:"u1",name:"Hansel",role:"admin",pin:"1234",emoji:"👷‍♂️"},
+  {id:"u2",name:"Noel",role:"supervisor",pin:"5678",emoji:"🦺"},
+  {id:"u3",name:"Jackson",role:"foreman",pin:"9012",emoji:"🔨"},
+  {id:"u4",name:"Eddy",role:"foreman",pin:"3456",emoji:"🔨"},
+];
+
+const DEFAULT_PROJECTS=[
+  {id:1,name:"MGE Lot 9",code:"L9",client:"Twenty Six Concrete Services, LLC",email:"",phone:"",address:"",contractValue:195000,status:"active",
+   payApps:[
+     {id:101,number:"PA-001",invNum:"NW-L9-2026-001",date:"2026-03-26",amount:4000,description:"Invoice Labors — Semana 1 (Mar 23–27)",status:"Paid",isReimb:false},
+     {id:102,number:"PA-002",invNum:"NW-L9-2026-002",date:"2026-04-04",amount:5250,description:"Invoice Labors — Semana 2 (Mar 28–Abr 01)",status:"Paid",isReimb:false},
+     {id:103,number:"PA-003",invNum:"NW-L9-2026-003",date:"2026-04-08",amount:4000,description:"Invoice Labors — Semana 3 (Abr 02–08)",status:"Paid",isReimb:false},
+     {id:104,number:"PA-004",invNum:"NW-L9-2026-004",date:"2026-04-15",amount:4500,description:"Invoice Labors — Semana 4 (Abr 08–15)",status:"Paid",isReimb:false},
+     {id:105,number:"PA-005",invNum:"NW-L9-2026-005",date:"2026-04-22",amount:5000,description:"Invoice Labors — Semana 5 (Abr 16–22)",status:"Paid",isReimb:false},
+     {id:106,number:"PA-006",invNum:"NW-L9-2026-006",date:"2026-04-29",amount:5000,description:"Invoice Labors — Semana 6 (Abr 23–29)",status:"Sent",isReimb:false},
+   ],changeOrders:[],reimbSeq:0},
+  {id:2,name:"MGE Lot 10",code:"L10",client:"Twenty Six Concrete Services, LLC",email:"",phone:"",address:"",contractValue:195000,status:"active",
+   payApps:[
+     {id:201,number:"PA-001",invNum:"NW-L10-2026-001",date:"2026-03-26",amount:4000,description:"Invoice Labors — Semana 1 (Mar 23–27)",status:"Paid",isReimb:false},
+     {id:202,number:"PA-002",invNum:"NW-L10-2026-002",date:"2026-04-01",amount:5250,description:"Invoice Labors — Semana 2 (Mar 28–Abr 01)",status:"Paid",isReimb:false},
+     {id:203,number:"PA-003",invNum:"NW-L10-2026-003",date:"2026-04-08",amount:4000,description:"Invoice Labors — Semana 3 (Abr 02–08)",status:"Paid",isReimb:false},
+     {id:204,number:"PA-004",invNum:"NW-L10-2026-004",date:"2026-04-15",amount:4500,description:"Invoice Labors — Semana 4 (Abr 08–15)",status:"Paid",isReimb:false},
+     {id:205,number:"PA-005",invNum:"NW-L10-2026-005",date:"2026-04-22",amount:6500,description:"Invoice Labors — Semana 5 (Abr 16–22)",status:"Paid",isReimb:false},
+     {id:206,number:"PA-006",invNum:"NW-L10-2026-006",date:"2026-04-29",amount:5000,description:"Invoice Labors — Semana 6 (Abr 23–29)",status:"Sent",isReimb:false},
+   ],changeOrders:[],reimbSeq:0},
+  {id:3,name:"Alton Rd",code:"AR",client:"",email:"",phone:"",address:"",contractValue:150000,status:"active",payApps:[],changeOrders:[],reimbSeq:0},
+];
+const DEFAULT_WORKERS=[
+  {id:1,name:"Noel Mejias",role:"Carpintero",appRole:"supervisor",payType:"salary",weeklyRate:1200},
+  {id:2,name:"Jackson Mejias",role:"Carpintero",appRole:"foreman",payType:"salary",weeklyRate:1400},
+  {id:3,name:"Eddy",role:"Carpintero",appRole:"foreman",payType:"salary",weeklyRate:1700},
+  {id:4,name:"Orlando Robledo",role:"Carpintero",appRole:"worker",payType:"hourly",hourlyRate:25},
+  {id:5,name:"Reinaldo Mejia",role:"Carpintero",appRole:"worker",payType:"hourly",hourlyRate:27},
+  {id:6,name:"Juan Jarquin",role:"Carpintero",appRole:"worker",payType:"hourly",hourlyRate:26},
+  {id:7,name:"Aron Rios",role:"Ayudante",appRole:"worker",payType:"hourly",hourlyRate:21},
+  {id:8,name:"Jarley Espinoza",role:"Ayudante",appRole:"worker",payType:"hourly",hourlyRate:21},
+  {id:9,name:"Miguel Calero",role:"Ayudante",appRole:"worker",payType:"hourly",hourlyRate:21},
+  {id:10,name:"Javier Sandoval",role:"Ayudante",appRole:"worker",payType:"hourly",hourlyRate:23},
+  {id:11,name:"Nestor Mendoza",role:"Ayudante",appRole:"worker",payType:"hourly",hourlyRate:18},
+  {id:12,name:"Santo Lopez",role:"Ayudante",appRole:"worker",payType:"hourly",hourlyRate:23},
+];
+
+/* ─── UTILS ─── */
+const dailyRate=w=>w.payType==="salary"?Math.round((w.weeklyRate||0)/6*100)/100:0;
+const entryCost=(e,w)=>{if(!w)return 0;return w.payType==="salary"?dailyRate(w):e.hours*(w.hourlyRate||0);};
+const calcH=(i,o,dead=0)=>{if(!i||!o)return 0;const[ih,im]=i.split(":").map(Number),[oh,om]=o.split(":").map(Number);const mins=(oh*60+om)-(ih*60+im)-(dead||0);if(mins<=0)return 0;const raw=mins/60;return Math.max(0,Math.round((raw>5?raw-0.5:raw)*10)/10);};
+const getThursdayStart=ds=>{const d=new Date(ds+"T12:00:00");const day=d.getDay();const diff=day>=4?day-4:day+3;d.setDate(d.getDate()-diff);return d.toISOString().split("T")[0];};
+const addDays=(ds,n)=>{const d=new Date(ds+"T12:00:00");d.setDate(d.getDate()+n);return d.toISOString().split("T")[0];};
+const fmtDate=ds=>{if(!ds)return"";const[y,m,d]=ds.split("-");return["","Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"][+m]+" "+d+", "+y;};
+const nextPANum=proj=>`NW-${proj.code}-${new Date().getFullYear()}-${String((proj.payApps?.length||0)+1).padStart(3,"0")}`;
+const nextReimbNum=proj=>`REIM-${proj.code}-${new Date().getFullYear()}-${String((proj.reimbSeq||0)+1).padStart(3,"0")}`;
+
+/* ─── DESIGN SYSTEM ─── */
+const Card=({children,style,onClick})=><div onClick={onClick} style={{background:"var(--bg)",borderRadius:"var(--rLg)",boxShadow:"var(--shadow)",border:"1px solid var(--border)",overflow:"hidden",...style}}>{children}</div>;
+
+const Pill=({label,color="orange"})=>{
+  const c={orange:{bg:"var(--orange-l)",text:"var(--orange-d)",border:"var(--orange-b)"},blue:{bg:"var(--blue-l)",text:"var(--blue)",border:"var(--blue-b)"},green:{bg:"var(--green-l)",text:"var(--green)",border:"var(--green-b)"},red:{bg:"var(--red-l)",text:"var(--red)",border:"var(--red-b)"},purple:{bg:"var(--purple-l)",text:"var(--purple)",border:"var(--purple-b)"},slate:{bg:"var(--slate-l)",text:"var(--slate)",border:"var(--slate-b)"}};
+  const s=c[color]||c.slate;
+  return<span style={{background:s.bg,color:s.text,border:`1px solid ${s.border}`,padding:"3px 10px",borderRadius:99,fontSize:11,fontWeight:600,whiteSpace:"nowrap",fontFamily:M}}>{label}</span>;
+};
+
+const Btn=({children,variant="primary",size="md",full,onClick,disabled,style})=>{
+  const variants={
+    primary:{bg:"var(--orange)",color:"white",border:"none",shadow:"0 2px 4px rgba(234,88,12,0.3)"},
+    secondary:{bg:"var(--bg)",color:"var(--orange)",border:"1.5px solid var(--orange)",shadow:"none"},
+    ghost:{bg:"transparent",color:"var(--muted)",border:"1px solid var(--border)",shadow:"none"},
+    danger:{bg:"var(--red-l)",color:"var(--red)",border:"1px solid var(--red-b)",shadow:"none"},
+    success:{bg:"var(--green-l)",color:"var(--green)",border:"1px solid var(--green-b)",shadow:"none"},
+  };
+  const sizes={sm:{padding:"6px 14px",fontSize:12,borderRadius:8},md:{padding:"10px 20px",fontSize:14,borderRadius:10},lg:{padding:"14px 24px",fontSize:16,borderRadius:12}};
+  const v=variants[variant]||variants.primary;const s=sizes[size]||sizes.md;
+  return<button onClick={onClick} disabled={disabled} style={{background:v.bg,color:v.color,border:v.border,boxShadow:v.shadow,padding:s.padding,fontSize:s.fontSize,borderRadius:s.borderRadius,fontWeight:600,cursor:disabled?"not-allowed":"pointer",opacity:disabled?0.5:1,width:full?"100%":"auto",transition:"all 0.15s",...style}}>{children}</button>;
+};
+
+const Input=({label,helper,...props})=><div style={{marginBottom:16}}>
+  {label&&<div style={{fontSize:13,fontWeight:500,color:"var(--text)",marginBottom:6}}>{label}</div>}
+  <input {...props} style={{width:"100%",padding:"11px 14px",border:"1.5px solid var(--border)",borderRadius:10,fontSize:15,color:"var(--text)",background:"var(--bg)",transition:"border 0.15s",...props.style}} onFocus={e=>e.target.style.borderColor="var(--orange)"} onBlur={e=>e.target.style.borderColor="var(--border)"}/>
+  {helper&&<div style={{fontSize:12,color:"var(--muted)",marginTop:4}}>{helper}</div>}
+</div>;
+
+const Select=({label,children,...props})=><div style={{marginBottom:16}}>
+  {label&&<div style={{fontSize:13,fontWeight:500,color:"var(--text)",marginBottom:6}}>{label}</div>}
+  <select {...props} style={{width:"100%",padding:"11px 14px",border:"1.5px solid var(--border)",borderRadius:10,fontSize:15,color:"var(--text)",background:"var(--bg)",...props.style}}>{children}</select>
+</div>;
+
+const KpiCard=({label,value,sub,color="orange",icon})=>{
+  const colors={orange:"var(--orange)",green:"var(--green)",blue:"var(--blue)",red:"var(--red)",purple:"var(--purple)",slate:"var(--slate)"};
+  return<div style={{background:"var(--bg)",borderRadius:"var(--rLg)",padding:"16px",boxShadow:"var(--shadow)",border:"1px solid var(--border)"}}>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
+      <div style={{fontSize:12,color:"var(--muted)",fontWeight:500}}>{label}</div>
+      {icon&&<div style={{fontSize:20}}>{icon}</div>}
+    </div>
+    <div style={{fontSize:22,fontWeight:700,color:colors[color]||colors.orange,fontFamily:M,marginBottom:sub?4:0}}>{value}</div>
+    {sub&&<div style={{fontSize:12,color:"var(--muted)"}}>{sub}</div>}
+  </div>;
+};
+
+const ProgressBar=({value,max,color="orange"})=>{
+  const p=pct(value,max);
+  const colors={orange:"var(--orange)",green:"var(--green)",blue:"var(--blue)"};
+  return<div style={{background:"var(--slate-b)",borderRadius:99,height:6,overflow:"hidden"}}>
+    <div style={{width:p+"%",height:"100%",background:colors[color]||colors.orange,borderRadius:99,transition:"width 0.5s"}}/>
+  </div>;
+};
+
+const Empty=({icon,msg,sub})=><div style={{padding:"40px 20px",textAlign:"center"}}>
+  <div style={{fontSize:40,marginBottom:12}}>{icon||"📭"}</div>
+  <div style={{fontSize:15,fontWeight:600,color:"var(--text)",marginBottom:4}}>{msg}</div>
+  {sub&&<div style={{fontSize:13,color:"var(--muted)"}}>{sub}</div>}
+</div>;
+
+const Avatar=({name,size=36})=>{
+  const initials=(name||"?").split(" ").map(n=>n[0]).join("").toUpperCase().slice(0,2);
+  const colors=["#ea580c","#2563eb","#16a34a","#7c3aed","#dc2626","#0891b2"];
+  const color=colors[name?.charCodeAt(0)%colors.length]||colors[0];
+  return<div style={{width:size,height:size,borderRadius:"50%",background:color,display:"flex",alignItems:"center",justifyContent:"center",color:"white",fontSize:size*0.38,fontWeight:700,flexShrink:0}}>{initials}</div>;
+};
+
+const Divider=()=><div style={{height:1,background:"var(--border)",margin:"12px 0"}}/>;
+
+const openPrint=html=>{const w=window.open("","_blank");if(w){w.document.write(html);w.document.close();}};
+
+/* ─── INVOICE HTML ─── */
+const CO={name:"N&W Construction Corp",address:"1858 NW 69th Ter, Miami FL 33147"};
+const paHTML=(proj,pa)=>`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${pa.invNum}</title><style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:-apple-system,sans-serif;padding:48px;color:#0f172a}table{width:100%;border-collapse:collapse}th{background:#f8fafc;padding:10px 12px;text-align:left;font-size:11px;color:#64748b;border-bottom:2px solid #e2e8f0;font-family:monospace;text-transform:uppercase}td{padding:12px;border-bottom:1px solid #e2e8f0;font-size:14px}.np{display:none}@media print{.np{display:none}}</style></head><body>
+<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:40px"><div><div style="font-size:11px;color:#ea580c;font-weight:700;letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px">N&W Construction Corp</div><div style="font-size:26px;font-weight:800;color:#0f172a">INVOICE</div><div style="color:#64748b;font-size:13px;margin-top:4px">${CO.address}</div></div><div style="text-align:right"><div style="font-size:32px;font-weight:800;font-family:monospace;color:#ea580c">${pa.invNum}</div><div style="color:#64748b;font-size:13px;margin-top:6px">Fecha: ${fmtDate(pa.date)}</div><div style="margin-top:8px;background:${pa.isReimb?"#fff7ed":"#eff6ff"};color:${pa.isReimb?"#ea580c":"#2563eb"};padding:4px 12px;border-radius:99px;font-size:12px;font-weight:600;display:inline-block">${pa.isReimb?"Reembolsable":"Labor Pay Application"}</div></div></div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:32px"><div style="background:#f8fafc;border-radius:12px;padding:20px"><div style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px">Facturar a</div><div style="font-size:17px;font-weight:700;margin-bottom:4px">${proj.client||"—"}</div>${proj.email?`<div style="color:#64748b;font-size:13px">${proj.email}</div>`:""}</div><div style="background:#f8fafc;border-radius:12px;padding:20px"><div style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px">Proyecto</div><div style="font-size:17px;font-weight:700;margin-bottom:4px">${proj.name}</div><div style="color:#64748b;font-size:13px">${pa.number}</div></div></div>
+<table style="margin-bottom:24px"><thead><tr><th>Descripción</th><th style="text-align:right">Monto</th></tr></thead><tbody><tr><td style="font-size:16px">${pa.description}</td><td style="text-align:right;font-size:20px;font-weight:700;font-family:monospace">${f$(pa.amount)}</td></tr></tbody><tfoot><tr style="background:#fff7ed"><td style="padding:14px 12px;text-align:right;font-weight:700;font-size:14px">TOTAL A PAGAR</td><td style="padding:14px 12px;text-align:right;font-weight:800;font-size:24px;font-family:monospace;color:#ea580c">${f$(pa.amount)}</td></tr></tfoot></table>
+<div class="np" style="text-align:center;margin-top:32px"><button onclick="window.print()" style="background:#ea580c;color:white;border:none;padding:12px 32px;font-size:15px;font-weight:700;border-radius:10px;cursor:pointer">🖨️ Imprimir / Guardar PDF</button></div></body></html>`;
+
+/* ─── LOGIN SCREEN ─── */
+function LoginScreen({pins,onLogin}){
+  const[pin,setPin]=useState("");
+  const[err,setErr]=useState(false);
+  const[shake,setShake]=useState(false);
+  const tap=(d)=>{
+    if(pin.length>=4)return;
+    const next=pin+d;
+    setPin(next);
+    if(next.length===4){
+      const user=pins.find(u=>u.pin===next);
+      if(user){onLogin(user);}
+      else{setErr(true);setShake(true);setTimeout(()=>{setPin("");setErr(false);setShake(false);},800);}
+    }
+  };
+  const del=()=>setPin(p=>p.slice(0,-1));
+  return(
+    <div style={{minHeight:"100vh",background:"linear-gradient(135deg,#ea580c 0%,#c2410c 100%)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:24}}>
+      <div style={{marginBottom:32,textAlign:"center"}}>
+        <div style={{fontSize:64,marginBottom:8}}>👷</div>
+        <div style={{color:"white",fontSize:28,fontWeight:800,letterSpacing:"-0.5px"}}>N&W Admin</div>
+        <div style={{color:"rgba(255,255,255,0.75)",fontSize:14,marginTop:4}}>N&W Construction Corp</div>
+      </div>
+      <div style={{background:"white",borderRadius:24,padding:"28px 24px",width:"100%",maxWidth:320,boxShadow:"0 20px 60px rgba(0,0,0,0.25)"}}>
+        <div style={{fontSize:14,fontWeight:600,color:"var(--muted)",textAlign:"center",marginBottom:20}}>Ingresa tu PIN</div>
+        <div style={{display:"flex",justifyContent:"center",gap:14,marginBottom:24,animation:shake?"shake 0.5s":"none"}}>
+          {[0,1,2,3].map(i=><div key={i} style={{width:14,height:14,borderRadius:"50%",background:pin.length>i?"var(--orange)":"var(--border)",transition:"all 0.15s",transform:pin.length>i?"scale(1.1)":"scale(1)"}}/>)}
+        </div>
+        {err&&<div style={{textAlign:"center",color:"var(--red)",fontSize:13,fontWeight:600,marginBottom:16}}>PIN incorrecto. Intenta de nuevo.</div>}
+        <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10}}>
+          {[1,2,3,4,5,6,7,8,9,"",0,"⌫"].map((d,i)=>(
+            <button key={i} onClick={()=>d==="⌫"?del():d!==""&&tap(String(d))} style={{padding:"16px 0",fontSize:d==="⌫"?18:20,fontWeight:600,background:d===""?"transparent":"var(--surface)",border:d===""?"none":"1.5px solid var(--border)",borderRadius:12,cursor:d===""?"default":"pointer",color:d==="⌫"?"var(--red)":"var(--text)",transition:"all 0.1s",WebkitTapHighlightColor:"transparent"}}>{d}</button>
+          ))}
+        </div>
+        <div style={{marginTop:20,fontSize:11,color:"var(--muted)",textAlign:"center",lineHeight:1.6}}>
+          Hansel: 1234 · Noel: 5678<br/>Jackson: 9012 · Eddy: 3456
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── TOAST ─── */
+function useToasts(){
+  const[toasts,setToasts]=useState([]);
+  const add=useCallback((msg,type="success")=>{const id=Date.now();setToasts(t=>[...t,{id,msg,type}]);setTimeout(()=>setToasts(t=>t.filter(x=>x.id!==id)),3500);},[]);
+  return{toasts,add};
+}
+function Toasts({toasts}){
+  if(!toasts.length)return null;
+  const colors={success:{bg:"var(--green-l)",border:"var(--green-b)",text:"var(--green)"},error:{bg:"var(--red-l)",border:"var(--red-b)",text:"var(--red)"},info:{bg:"var(--blue-l)",border:"var(--blue-b)",text:"var(--blue)"}};
+  return<div style={{position:"fixed",bottom:90,left:"50%",transform:"translateX(-50%)",zIndex:9999,display:"flex",flexDirection:"column",gap:8,width:"calc(100% - 32px)",maxWidth:400}}>
+    {toasts.map(t=>{const c=colors[t.type]||colors.success;return<div key={t.id} className="fade" style={{background:c.bg,border:`1px solid ${c.border}`,color:c.text,padding:"12px 16px",borderRadius:12,fontSize:14,fontWeight:500,boxShadow:"var(--shadow-md)",textAlign:"center"}}>{t.msg}</div>;})}
+  </div>;
+}
+
+/* ─── TOP BAR ─── */
+function TopBar({user,title,onBack,action,onLogout}){
+  return<div style={{position:"sticky",top:0,zIndex:100,background:"white",borderBottom:"1px solid var(--border)",padding:"0 16px",height:56,display:"flex",alignItems:"center",gap:12}}>
+    {onBack?<button onClick={onBack} style={{background:"none",border:"none",padding:"8px 4px",cursor:"pointer",color:"var(--orange)",fontSize:20,display:"flex",alignItems:"center"}}>‹</button>:
+    <div style={{display:"flex",alignItems:"center",gap:8}}>
+      <div style={{fontSize:22}}>👷</div>
+      <div style={{fontWeight:800,fontSize:16,color:"var(--orange)"}}>N&W</div>
+    </div>}
+    <div style={{flex:1,fontWeight:700,fontSize:16,color:"var(--text)"}}>{title}</div>
+    {action&&<div>{action}</div>}
+    {onLogout&&<button onClick={onLogout} style={{background:"none",border:"1px solid var(--border)",borderRadius:8,padding:"6px 10px",cursor:"pointer",fontSize:12,color:"var(--muted)",fontWeight:500}}>Salir</button>}
+  </div>;
+}
+
+/* ─── BOTTOM NAV ─── */
+function BottomNav({tab,setTab,role,pendingCount}){
+  const tabs={
+    admin:[{id:"dashboard",icon:"🏠",label:"Inicio"},{id:"proyectos",icon:"🏗️",label:"Proyectos"},{id:"personal",icon:"👷",label:"Personal"},{id:"finanzas",icon:"💰",label:"Finanzas"},{id:"config",icon:"⚙️",label:"Config"}],
+    supervisor:[{id:"clock",icon:"⏱",label:"Horas"},{id:"compras",icon:"🛒",label:"Compras"},{id:"reimb",icon:"🧾",label:"Reimb."}],
+    foreman:[{id:"clock",icon:"⏱",label:"Horas"},{id:"personal_req",icon:"👷",label:"Personal"}],
+  };
+  const items=tabs[role]||tabs.foreman;
+  return<div style={{position:"fixed",bottom:0,left:0,right:0,background:"white",borderTop:"1px solid var(--border)",display:"flex",zIndex:200,boxShadow:"0 -4px 12px rgba(0,0,0,0.06)",paddingBottom:"env(safe-area-inset-bottom)"}}>
+    {items.map(t=>{const active=tab===t.id;return<button key={t.id} onClick={()=>setTab(t.id)} style={{flex:1,border:"none",background:"none",padding:"10px 4px 8px",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:3,position:"relative",WebkitTapHighlightColor:"transparent"}}>
+      <div style={{fontSize:22,filter:active?"none":"grayscale(1)",opacity:active?1:0.5,transition:"all 0.15s"}}>{t.icon}</div>
+      <div style={{fontSize:10,fontWeight:active?700:500,color:active?"var(--orange)":"var(--muted)",transition:"all 0.15s"}}>{t.label}</div>
+      {active&&<div style={{position:"absolute",top:0,left:"25%",right:"25%",height:2,background:"var(--orange)",borderRadius:99}}/>}
+      {t.id==="personal"&&pendingCount>0&&<div style={{position:"absolute",top:6,right:"22%",background:"var(--red)",color:"white",borderRadius:"50%",width:16,height:16,display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,fontWeight:700}}>{pendingCount}</div>}
+    </button>;})}
+  </div>;
+}
+
+/* ─── DASHBOARD ─── */
+function Dashboard({projects,timeEntries,workers,purchases,expenses,reimb,onViewProject}){
+  const totalContract=projects.reduce((s,p)=>s+p.contractValue,0);
+  const totalCobrado=projects.reduce((s,p)=>s+p.payApps.filter(pa=>pa.status==="Paid").reduce((ss,pa)=>ss+pa.amount,0),0);
+  const totalPorCobrar=projects.reduce((s,p)=>s+p.payApps.filter(pa=>pa.status==="Sent").reduce((ss,pa)=>ss+pa.amount,0),0);
+  const totalLabor=timeEntries.filter(e=>e.hours>0).reduce((s,e)=>{const w=workers.find(w=>w.id===e.workerId);return s+entryCost(e,w);},0);
+  const totalMat=purchases.reduce((s,p)=>s+p.amount,0);
+  const totalGastos=totalLabor+totalMat+expenses.reduce((s,e)=>s+e.amount,0);
+  const saldoEmpresa=totalCobrado-totalGastos;
+  return(
+    <div style={{paddingBottom:16}}>
+      <div style={{padding:"16px 16px 0"}}>
+        <div style={{fontSize:13,color:"var(--muted)",marginBottom:4}}>Resumen empresa</div>
+        <div style={{fontSize:26,fontWeight:800,color:"var(--text)",marginBottom:16}}>N&W Construction</div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
+          <KpiCard label="Contrato total" value={f$(totalContract)} sub={projects.length+" proyectos activos"} color="slate" icon="📋"/>
+          <KpiCard label="Cobrado" value={f$(totalCobrado)} sub={"Por cobrar: "+f$(totalPorCobrar)} color="green" icon="✅"/>
+          <KpiCard label="Gastos totales" value={f$(totalGastos)} sub={"Labor: "+f$(totalLabor)} color="red" icon="📤"/>
+          <KpiCard label="Saldo empresa" value={f$(saldoEmpresa)} sub={saldoEmpresa>=0?"Positivo ✓":"Déficit ⚠️"} color={saldoEmpresa>=0?"green":"red"} icon="💰"/>
+        </div>
+      </div>
+      <div style={{padding:"0 16px"}}>
+        <div style={{fontSize:14,fontWeight:700,color:"var(--text)",marginBottom:10,marginTop:8}}>Proyectos activos</div>
+        {projects.map(p=>{
+          const cobrado=p.payApps.filter(pa=>pa.status==="Paid").reduce((s,pa)=>s+pa.amount,0);
+          const porCobrar=p.payApps.filter(pa=>pa.status==="Sent").reduce((s,pa)=>s+pa.amount,0);
+          const laborP=timeEntries.filter(e=>e.projectId===p.id&&e.hours>0).reduce((s,e)=>{const w=workers.find(w=>w.id===e.workerId);return s+entryCost(e,w);},0);
+          const matP=purchases.filter(pu=>pu.projectId===p.id).reduce((s,pu)=>s+pu.amount,0);
+          const saldo=cobrado-laborP-matP;
+          return(
+            <Card key={p.id} style={{marginBottom:12,cursor:"pointer"}} onClick={()=>onViewProject(p.id)}>
+              <div style={{padding:"16px"}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:12}}>
+                  <div>
+                    <div style={{fontWeight:700,fontSize:16,marginBottom:2}}>{p.name}</div>
+                    <div style={{fontSize:12,color:"var(--muted)"}}>{p.client||"Sin cliente"}</div>
+                  </div>
+                  <div style={{textAlign:"right"}}>
+                    <div style={{fontSize:11,color:"var(--muted)"}}>Saldo</div>
+                    <div style={{fontSize:18,fontWeight:700,color:saldo>=0?"var(--green)":"var(--red)",fontFamily:M}}>{f$(saldo)}</div>
+                  </div>
+                </div>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:12}}>
+                  <div style={{background:"var(--green-l)",borderRadius:10,padding:"8px 10px"}}>
+                    <div style={{fontSize:10,color:"var(--green)",fontWeight:600,marginBottom:2}}>COBRADO</div>
+                    <div style={{fontSize:14,fontWeight:700,color:"var(--green)",fontFamily:M}}>{f$(cobrado)}</div>
+                  </div>
+                  <div style={{background:"var(--orange-l)",borderRadius:10,padding:"8px 10px"}}>
+                    <div style={{fontSize:10,color:"var(--orange-d)",fontWeight:600,marginBottom:2}}>P/COBRAR</div>
+                    <div style={{fontSize:14,fontWeight:700,color:"var(--orange-d)",fontFamily:M}}>{f$(porCobrar)}</div>
+                  </div>
+                  <div style={{background:"var(--red-l)",borderRadius:10,padding:"8px 10px"}}>
+                    <div style={{fontSize:10,color:"var(--red)",fontWeight:600,marginBottom:2}}>GASTOS</div>
+                    <div style={{fontSize:14,fontWeight:700,color:"var(--red)",fontFamily:M}}>{f$(laborP+matP)}</div>
+                  </div>
+                </div>
+                <ProgressBar value={cobrado} max={p.contractValue}/>
+                <div style={{fontSize:11,color:"var(--muted)",marginTop:4}}>{pct(cobrado,p.contractValue)}% cobrado de {f$(p.contractValue)}</div>
+              </div>
+            </Card>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/* ─── TIME CLOCK ─── */
+function TimeClock({projects,workers,setWorkers,timeEntries,setTimeEntries,pending,setPending,role,user,toast}){
+  const[pid,setPid]=useState(projects[0]?.id);
+  const[selWids,setSelWids]=useState([]);
+  const[date,setDate]=useState(TODAY);
+  const[clockIn,setClockIn]=useState("07:00");
+  const[clockOut,setClockOut]=useState("");
+  const[dead,setDead]=useState(0);
+  const[view,setView]=useState("clock");
+  const[newW,setNewW]=useState({name:"",role:"Ayudante",notes:""});
+  const[addingW,setAddingW]=useState(false);
+  const h=calcH(clockIn,clockOut,dead);
+  const proj=projects.find(p=>p.id===pid);
+
+  const dayMap=useMemo(()=>{const m={};timeEntries.forEach(e=>{if(e.date===date)m[e.workerId]=e.projectId;});return m;},[timeEntries,date]);
+  const getSt=(wid)=>{const a=dayMap[wid];return!a?"available":a===pid?"active":"unavailable";};
+
+  const register=()=>{
+    if(!selWids.length||!pid||!clockIn)return;
+    const added=[];
+    selWids.forEach(wid=>{
+      if(timeEntries.find(e=>e.workerId===wid&&e.date===date&&e.projectId!==pid))return;
+      added.push({id:Date.now()+Math.random(),projectId:pid,workerId:wid,date,clockIn,clockOut,hours:h>0?h:0,dead:dead||0});
+    });
+    if(added.length){setTimeEntries(p=>[...p,...added]);toast("✅ "+added.length+" entrada"+(added.length>1?"s":"")+" registrada"+(added.length>1?"s":""));setSelWids([]);setClockOut("");setDead(0);}
+  };
+
+  const todayLog=timeEntries.filter(e=>e.projectId===pid&&e.date===date);
+
+  return(
+    <div style={{paddingBottom:80}}>
+      <div style={{padding:"12px 16px",background:"var(--orange-l)",borderBottom:"1px solid var(--orange-b)"}}>
+        <div style={{display:"flex",gap:8,marginBottom:10}}>
+          {[["clock","⏱ Registro"],["log","📋 Log"],["nomina","💰 Nómina"]].map(([v,l])=>(
+            <button key={v} onClick={()=>setView(v)} style={{flex:1,padding:"8px 4px",border:"none",borderRadius:8,background:view===v?"var(--orange)":"transparent",color:view===v?"white":"var(--orange-d)",fontWeight:600,fontSize:12,cursor:"pointer"}}>{l}</button>
+          ))}
+        </div>
+        <Select value={pid} onChange={e=>setPid(+e.target.value)} style={{marginBottom:0}}>
+          {projects.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}
+        </Select>
+      </div>
+
+      {view==="clock"&&<div style={{padding:"16px"}}>
+        <div style={{fontSize:13,fontWeight:600,color:"var(--muted)",marginBottom:10}}>Selecciona trabajadores</div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:16}}>
+          {workers.map(w=>{const st=getSt(w.id);const unavail=st==="unavailable";const sel=selWids.includes(w.id);
+            return<button key={w.id} onClick={()=>{if(unavail)return;setSelWids(p=>sel?p.filter(x=>x!==w.id):[...p,w.id]);}} style={{padding:"12px",border:`2px solid ${sel?"var(--orange)":unavail?"var(--border)":"var(--border)"}`,borderRadius:12,background:sel?"var(--orange-l)":unavail?"var(--surface)":"white",cursor:unavail?"not-allowed":"pointer",textAlign:"left",opacity:unavail?0.5:1,position:"relative"}}>
+              <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
+                <Avatar name={w.name} size={28}/>
+                {sel&&<div style={{position:"absolute",top:8,right:8,background:"var(--orange)",color:"white",borderRadius:"50%",width:18,height:18,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700}}>✓</div>}
+              </div>
+              <div style={{fontSize:13,fontWeight:600,color:unavail?"var(--muted)":"var(--text)"}}>{w.name}</div>
+              <div style={{fontSize:11,color:"var(--muted)"}}>{w.role}</div>
+              {unavail&&<div style={{fontSize:10,color:"var(--red)",fontWeight:500,marginTop:2}}>En otro proyecto</div>}
+            </button>;
+          })}
+        </div>
+        {selWids.length>0&&<div style={{background:"var(--orange-l)",border:"1px solid var(--orange-b)",borderRadius:10,padding:"10px 14px",marginBottom:12,fontSize:13,color:"var(--orange-d)",fontWeight:500}}>{selWids.length} seleccionado{selWids.length>1?"s":""} · <span style={{cursor:"pointer",textDecoration:"underline"}} onClick={()=>setSelWids([])}>Limpiar</span></div>}
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
+          <Input label="Fecha" type="date" value={date} onChange={e=>{setDate(e.target.value);setSelWids([]);}} style={{marginBottom:0}}/>
+          <Input label="Entrada" type="time" value={clockIn} onChange={e=>setClockIn(e.target.value)} style={{marginBottom:0}}/>
+          <Input label="Salida" type="time" value={clockOut} onChange={e=>setClockOut(e.target.value)} style={{marginBottom:0}}/>
+          <div><div style={{fontSize:13,fontWeight:500,marginBottom:6}}>T. muerto (min)</div><input type="number" value={dead||""} onChange={e=>setDead(+e.target.value||0)} placeholder="0" style={{width:"100%",padding:"11px 14px",border:"1.5px solid var(--border)",borderRadius:10,fontSize:15}}/></div>
+        </div>
+        {h>0&&<div style={{background:"var(--green-l)",border:"1px solid var(--green-b)",borderRadius:10,padding:"10px 14px",marginBottom:12,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+          <span style={{fontSize:13,color:"var(--green)"}}>Horas netas</span>
+          <span style={{fontSize:22,fontWeight:700,color:"var(--green)",fontFamily:M}}>{h}h</span>
+        </div>}
+        <Btn full onClick={register} disabled={!selWids.length||!clockIn}>{selWids.length>0?"Registrar "+selWids.length+" trabajador"+(selWids.length>1?"es":""):"Selecciona trabajadores primero"}</Btn>
+        
+        {(role==="foreman"||role==="supervisor")&&<>
+          <Divider/>
+          <button onClick={()=>setAddingW(!addingW)} style={{width:"100%",padding:"12px",border:"1.5px dashed var(--border)",borderRadius:12,background:"none",color:"var(--muted)",fontWeight:600,fontSize:14,cursor:"pointer"}}>+ Solicitar nuevo trabajador</button>
+          {addingW&&<div style={{marginTop:12,background:"var(--blue-l)",border:"1px solid var(--blue-b)",borderRadius:12,padding:16}}>
+            <Input label="Nombre" value={newW.name} onChange={e=>setNewW({...newW,name:e.target.value})} placeholder="Nombre completo"/>
+            <Select label="Cargo" value={newW.role} onChange={e=>setNewW({...newW,role:e.target.value})}><option>Ayudante</option><option>Carpintero</option><option>Cabillero</option><option>General</option></Select>
+            <Input label="Notas" value={newW.notes} onChange={e=>setNewW({...newW,notes:e.target.value})} placeholder="Info adicional..."/>
+            <div style={{display:"flex",gap:8}}>
+              <Btn onClick={()=>{if(!newW.name.trim())return;setPending(p=>[...p,{id:Date.now(),name:newW.name.trim(),role:newW.role,notes:newW.notes,date:TODAY,status:"pending"}]);setNewW({name:"",role:"Ayudante",notes:""});setAddingW(false);toast("Solicitud enviada");}} full>Enviar solicitud</Btn>
+            </div>
+          </div>}
+        </>}
+      </div>}
+
+      {view==="log"&&<div style={{padding:"16px"}}>
+        <Input label="Fecha" type="date" value={date} onChange={e=>setDate(e.target.value)}/>
+        {todayLog.length===0?<Empty icon="📋" msg="Sin entradas" sub={"No hay registros para el "+date}/>:
+        <div style={{display:"grid",gap:10}}>
+          {todayLog.map(e=>{const w=workers.find(w=>w.id===e.workerId);return<Card key={e.id}>
+            <div style={{padding:"12px 14px",display:"flex",alignItems:"center",gap:12}}>
+              <Avatar name={w?.name} size={40}/>
+              <div style={{flex:1}}>
+                <div style={{fontWeight:600,fontSize:14}}>{w?.name}</div>
+                <div style={{fontSize:12,color:"var(--muted)"}}>{e.clockIn||"—"} → {e.clockOut||"activo"}</div>
+              </div>
+              <div style={{textAlign:"right"}}>
+                <div style={{fontSize:18,fontWeight:700,color:"var(--orange)",fontFamily:M}}>{e.hours}h</div>
+                {role==="admin"&&<button onClick={()=>{if(confirm("¿Eliminar?"))setTimeEntries(p=>p.filter(x=>x.id!==e.id));}} style={{background:"none",border:"none",color:"var(--red)",fontSize:12,cursor:"pointer",fontWeight:500}}>Eliminar</button>}
+              </div>
+            </div>
+          </Card>;})}
+        </div>}
+      </div>}
+
+      {view==="nomina"&&<NominaView workers={workers} timeEntries={timeEntries} projects={projects} role={role}/>}
+    </div>
+  );
+}
+
+/* ─── NOMINA VIEW ─── */
+function NominaView({workers,timeEntries,projects,role}){
+  const[payDate,setPayDate]=useState(getThursdayStart(TODAY));
+  const[viewMode,setViewMode]=useState("empleados"); // empleados | proyectos
+  const payEnd=addDays(payDate,6);
+  const entries=timeEntries.filter(e=>e.date>=payDate&&e.date<=payEnd&&e.hours>0);
+
+  // Per employee
+  const byEmployee=workers.map(w=>{
+    const we=entries.filter(e=>e.workerId===w.id);
+    if(!we.length)return null;
+    const totalH=we.reduce((s,e)=>s+e.hours,0);
+    const days=new Set(we.map(e=>e.date)).size;
+    const cost=w.payType==="salary"?days*dailyRate(w):we.reduce((s,e)=>s+e.hours*(w.hourlyRate||0),0);
+    const byProj=projects.map(p=>{
+      const pe=we.filter(e=>e.projectId===p.id);
+      if(!pe.length)return null;
+      const ph=pe.reduce((s,e)=>s+e.hours,0);
+      const pd=new Set(pe.map(e=>e.date)).size;
+      const pc=w.payType==="salary"?pd*dailyRate(w):pe.reduce((s,e)=>s+e.hours*(w.hourlyRate||0),0);
+      return{...p,hours:ph,days:pd,cost:pc};
+    }).filter(Boolean);
+    return{...w,totalH,days,cost,byProj};
+  }).filter(Boolean);
+
+  // Per project
+  const byProject=projects.map(p=>{
+    const pe=entries.filter(e=>e.projectId===p.id);
+    if(!pe.length)return null;
+    const totalH=pe.reduce((s,e)=>s+e.hours,0);
+    const cost=pe.reduce((s,e)=>{const w=workers.find(w=>w.id===e.workerId);return s+entryCost(e,w);},0);
+    const emps=workers.map(w=>{
+      const we=pe.filter(e=>e.workerId===w.id);
+      if(!we.length)return null;
+      const wh=we.reduce((s,e)=>s+e.hours,0);
+      const wd=new Set(we.map(e=>e.date)).size;
+      const wc=w.payType==="salary"?wd*dailyRate(w):we.reduce((s,e)=>s+e.hours*(w.hourlyRate||0),0);
+      return{...w,hours:wh,days:wd,cost:wc};
+    }).filter(Boolean);
+    return{...p,totalH,cost,emps};
+  }).filter(Boolean);
+
+  const grandTotal=byEmployee.reduce((s,w)=>s+w.cost,0);
+
+  return<div style={{padding:16,paddingBottom:24}}>
+    <div style={{marginBottom:12}}>
+      <div style={{fontSize:13,fontWeight:500,marginBottom:6}}>Semana de pago (Jue→Mié)</div>
+      <input type="date" value={payDate} onChange={e=>setPayDate(getThursdayStart(e.target.value))} style={{width:"100%",padding:"11px 14px",border:"1.5px solid var(--border)",borderRadius:10,fontSize:15}}/>
+      <div style={{fontSize:12,color:"var(--muted)",marginTop:4}}>{payDate} → {payEnd}</div>
+    </div>
+
+    {byEmployee.length===0?<Empty icon="💰" msg="Sin horas registradas" sub="Selecciona otra semana"/>:<>
+      {/* TOTAL */}
+      <div style={{background:"var(--orange)",borderRadius:14,padding:"16px",marginBottom:16,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+        <div><div style={{color:"rgba(255,255,255,0.8)",fontSize:12,fontWeight:600}}>TOTAL NÓMINA</div><div style={{color:"rgba(255,255,255,0.75)",fontSize:11,marginTop:2}}>{payDate} → {payEnd}</div></div>
+        <div style={{color:"white",fontWeight:800,fontSize:26,fontFamily:M}}>{f$(grandTotal)}</div>
+      </div>
+
+      {/* VIEW TOGGLE */}
+      <div style={{display:"flex",gap:8,marginBottom:14}}>
+        {[["empleados","👷 Por empleado"],["proyectos","🏗️ Por proyecto"]].map(([v,l])=>(
+          <button key={v} onClick={()=>setViewMode(v)} style={{flex:1,padding:"9px",border:"none",borderRadius:10,background:viewMode===v?"var(--orange)":"var(--surface)",color:viewMode===v?"white":"var(--muted)",fontWeight:600,fontSize:12,cursor:"pointer"}}>{l}</button>
+        ))}
+      </div>
+
+      {/* BY EMPLOYEE */}
+      {viewMode==="empleados"&&<div style={{display:"grid",gap:10}}>
+        {byEmployee.map(w=><Card key={w.id}>
+          <div style={{padding:"14px 16px"}}>
+            <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:w.byProj.length>1?10:0}}>
+              <Avatar name={w.name} size={44}/>
+              <div style={{flex:1}}>
+                <div style={{fontWeight:700,fontSize:15}}>{w.name}</div>
+                <div style={{fontSize:12,color:"var(--muted)"}}>{w.role} · {w.days} día{w.days!==1?"s":""} · {w.totalH}h</div>
+                <div style={{fontSize:11,color:"var(--muted)",marginTop:2}}>{w.payType==="salary"?f$(dailyRate(w))+"/día":"$"+w.hourlyRate+"/hr"}</div>
+              </div>
+              <div style={{textAlign:"right"}}>
+                <div style={{fontSize:22,fontWeight:800,color:"var(--orange)",fontFamily:M}}>{f$(w.cost)}</div>
+              </div>
+            </div>
+            {w.byProj.length>0&&<>
+              <div style={{height:1,background:"var(--border)",margin:"8px 0"}}/>
+              {w.byProj.map(p=><div key={p.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"4px 0"}}>
+                <div style={{display:"flex",alignItems:"center",gap:6}}>
+                  <div style={{width:6,height:6,borderRadius:"50%",background:"var(--orange)",flexShrink:0}}/>
+                  <span style={{fontSize:12,color:"var(--muted)"}}>{p.name}</span>
+                  <span style={{fontSize:11,color:"var(--muted)"}}>· {p.days}d · {p.hours}h</span>
+                </div>
+                <span style={{fontSize:13,fontWeight:600,color:"var(--text)",fontFamily:M}}>{f$(p.cost)}</span>
+              </div>)}
+            </>}
+          </div>
+        </Card>)}
+      </div>}
+
+      {/* BY PROJECT */}
+      {viewMode==="proyectos"&&<div style={{display:"grid",gap:10}}>
+        {byProject.map(p=><Card key={p.id}>
+          <div style={{padding:"14px 16px"}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+              <div>
+                <div style={{fontWeight:700,fontSize:16}}>{p.name}</div>
+                <div style={{fontSize:12,color:"var(--muted)"}}>{p.totalH}h trabajadas en el período</div>
+              </div>
+              <div style={{textAlign:"right"}}>
+                <div style={{fontSize:11,color:"var(--muted)"}}>Costo labor</div>
+                <div style={{fontSize:22,fontWeight:800,color:"var(--orange)",fontFamily:M}}>{f$(p.cost)}</div>
+              </div>
+            </div>
+            <div style={{height:1,background:"var(--border)",margin:"8px 0"}}/>
+            {p.emps.map(w=><div key={w.id} style={{display:"flex",alignItems:"center",gap:10,padding:"6px 0",borderBottom:"0.5px solid var(--border)"}}>
+              <Avatar name={w.name} size={28}/>
+              <div style={{flex:1}}>
+                <div style={{fontSize:13,fontWeight:600}}>{w.name}</div>
+                <div style={{fontSize:11,color:"var(--muted)"}}>{w.days}d · {w.hours}h · {w.payType==="salary"?f$(dailyRate(w))+"/día":"$"+w.hourlyRate+"/hr"}</div>
+              </div>
+              <div style={{fontSize:14,fontWeight:700,fontFamily:M,color:"var(--text)"}}>{f$(w.cost)}</div>
+            </div>)}
+          </div>
+        </Card>)}
+        {/* Project totals summary */}
+        <Card style={{background:"var(--surface)"}}>
+          <div style={{padding:"14px 16px"}}>
+            <div style={{fontSize:13,fontWeight:700,marginBottom:8}}>Resumen por proyecto</div>
+            {byProject.map(p=><div key={p.id} style={{display:"flex",justifyContent:"space-between",padding:"6px 0",borderBottom:"0.5px solid var(--border)"}}>
+              <span style={{fontSize:13,color:"var(--muted)"}}>{p.name}</span>
+              <span style={{fontSize:14,fontWeight:700,fontFamily:M,color:"var(--orange)"}}>{f$(p.cost)}</span>
+            </div>)}
+            <div style={{display:"flex",justifyContent:"space-between",padding:"10px 0 0",marginTop:4}}>
+              <span style={{fontSize:14,fontWeight:700}}>Total nómina</span>
+              <span style={{fontSize:16,fontWeight:800,fontFamily:M,color:"var(--orange)"}}>{f$(grandTotal)}</span>
+            </div>
+          </div>
+        </Card>
+      </div>}
+    </>}
+  </div>;
+}
+/* ─── PROYECTOS ─── */
+function Proyectos({projects,setProjects,timeEntries,workers,purchases,reimb,toast}){
+  const[view,setView]=useState("list");
+  const[selId,setSelId]=useState(null);
+  const[addingPA,setAddingPA]=useState(false);
+  const[paForm,setPaForm]=useState({description:"",amount:"",date:TODAY,status:"Draft"});
+  const sel=projects.find(p=>p.id===selId);
+
+  if(view==="detail"&&sel){
+    const cobrado=sel.payApps.filter(pa=>pa.status==="Paid").reduce((s,pa)=>s+pa.amount,0);
+    const porCobrar=sel.payApps.filter(pa=>pa.status==="Sent").reduce((s,pa)=>s+pa.amount,0);
+    const total=sel.payApps.reduce((s,pa)=>s+pa.amount,0);
+    const labor=timeEntries.filter(e=>e.projectId===sel.id&&e.hours>0).reduce((s,e)=>{const w=workers.find(w=>w.id===e.workerId);return s+entryCost(e,w);},0);
+    const mat=purchases.filter(p=>p.projectId===sel.id).reduce((s,p)=>s+p.amount,0);
+    const updPA=(id,st)=>setProjects(ps=>ps.map(p=>p.id!==sel.id?p:{...p,payApps:p.payApps.map(pa=>pa.id===id?{...pa,status:st}:pa)}));
+    const addPA=()=>{if(!paForm.description||!paForm.amount)return;const invNum=nextPANum(sel);setProjects(ps=>ps.map(p=>p.id!==sel.id?p:{...p,payApps:[...p.payApps,{id:Date.now(),number:"PA-"+String(p.payApps.length+1).padStart(3,"0"),invNum,description:paForm.description,amount:+paForm.amount,date:paForm.date,status:paForm.status,isReimb:false}]}));setPaForm({description:"",amount:"",date:TODAY,status:"Draft"});setAddingPA(false);toast("PA agregada");};
+    return<div style={{paddingBottom:80}}>
+      <TopBar title={sel.name} onBack={()=>setView("list")}/>
+      <div style={{padding:"16px"}}>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:16}}>
+          <KpiCard label="Cobrado" value={f$(cobrado)} color="green" icon="✅"/>
+          <KpiCard label="Por cobrar" value={f$(porCobrar)} color="orange" icon="📤"/>
+          <KpiCard label="Labor" value={f$(labor)} color="red" icon="👷"/>
+          <KpiCard label="Materiales" value={f$(mat)} color="purple" icon="🛒"/>
+        </div>
+        <div style={{background:"var(--green-l)",border:"1px solid var(--green-b)",borderRadius:12,padding:"14px 16px",marginBottom:16,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+          <div style={{fontSize:13,color:"var(--green)",fontWeight:600}}>Saldo neto</div>
+          <div style={{fontSize:22,fontWeight:800,color:"var(--green)",fontFamily:M}}>{f$(cobrado-labor-mat)}</div>
+        </div>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+          <div style={{fontSize:15,fontWeight:700}}>Pay Applications</div>
+          <Btn size="sm" onClick={()=>setAddingPA(!addingPA)}>+ Nueva PA</Btn>
+        </div>
+        {addingPA&&<Card style={{marginBottom:12}}>
+          <div style={{padding:16,background:"var(--orange-l)"}}>
+            <div style={{fontSize:12,color:"var(--orange-d)",marginBottom:10,fontWeight:500}}>Invoice # auto: {nextPANum(sel)}</div>
+            <Input label="Descripción" value={paForm.description} onChange={e=>setPaForm({...paForm,description:e.target.value})} placeholder="Invoice Labors — Semana..."/>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+              <Input label="Monto ($)" type="number" value={paForm.amount} onChange={e=>setPaForm({...paForm,amount:e.target.value})}/>
+              <Input label="Fecha" type="date" value={paForm.date} onChange={e=>setPaForm({...paForm,date:e.target.value})}/>
+            </div>
+            <Select label="Estado" value={paForm.status} onChange={e=>setPaForm({...paForm,status:e.target.value})}><option>Draft</option><option>Sent</option><option>Paid</option></Select>
+            <div style={{display:"flex",gap:8}}><Btn onClick={addPA} full>Agregar</Btn></div>
+          </div>
+        </Card>}
+        {sel.payApps.length===0?<Empty icon="📄" msg="Sin Pay Applications" sub="Agrega la primera PA"/>:
+        <div style={{display:"grid",gap:10}}>
+          {sel.payApps.map(pa=><Card key={pa.id}>
+            <div style={{padding:"14px 16px"}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
+                <div>
+                  <div style={{fontFamily:M,fontSize:11,color:"var(--orange)",fontWeight:600}}>{pa.number} · {pa.invNum}</div>
+                  <div style={{fontSize:14,fontWeight:600,marginTop:2}}>{pa.description}</div>
+                  <div style={{fontSize:12,color:"var(--muted)",marginTop:2}}>{fmtDate(pa.date)}</div>
+                </div>
+                <div style={{textAlign:"right"}}>
+                  <div style={{fontSize:20,fontWeight:800,fontFamily:M,color:"var(--text)"}}>{f$(pa.amount)}</div>
+                  <div style={{marginTop:4}}><Pill label={pa.status==="Paid"?"Cobrado":pa.status==="Sent"?"Por cobrar":"Borrador"} color={pa.status==="Paid"?"green":pa.status==="Sent"?"orange":"slate"}/></div>
+                </div>
+              </div>
+              <div style={{display:"flex",gap:8}}>
+                <button onClick={()=>openPrint(paHTML(sel,pa))} style={{flex:1,padding:"8px",border:"1px solid var(--border)",borderRadius:8,background:"white",cursor:"pointer",fontSize:12,fontWeight:500}}>🖨️ Ver invoice</button>
+                {pa.status==="Draft"&&<button onClick={()=>updPA(pa.id,"Sent")} style={{flex:1,padding:"8px",border:"1px solid var(--orange-b)",borderRadius:8,background:"var(--orange-l)",cursor:"pointer",fontSize:12,fontWeight:600,color:"var(--orange-d)"}}>Enviar</button>}
+                {pa.status==="Sent"&&<button onClick={()=>updPA(pa.id,"Paid")} style={{flex:1,padding:"8px",border:"1px solid var(--green-b)",borderRadius:8,background:"var(--green-l)",cursor:"pointer",fontSize:12,fontWeight:600,color:"var(--green)"}}>✓ Cobrado</button>}
+                {pa.status==="Paid"&&<button onClick={()=>updPA(pa.id,"Sent")} style={{flex:1,padding:"8px",border:"1px solid var(--border)",borderRadius:8,background:"var(--surface)",cursor:"pointer",fontSize:12,fontWeight:500,color:"var(--muted)"}}>Revertir</button>}
+              </div>
+            </div>
+          </Card>)}
+          <Card style={{background:"var(--surface)"}}>
+            <div style={{padding:"12px 16px"}}>
+              <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}><span style={{fontSize:13,color:"var(--muted)"}}>Total facturado</span><span style={{fontFamily:M,fontWeight:700,color:"var(--text)"}}>{f$(total)}</span></div>
+              <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}><span style={{fontSize:13,color:"var(--green)"}}>Cobrado (Paid)</span><span style={{fontFamily:M,fontWeight:700,color:"var(--green)"}}>{f$(cobrado)}</span></div>
+              {porCobrar>0&&<div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}><span style={{fontSize:13,color:"var(--orange-d)"}}>Por cobrar (Sent)</span><span style={{fontFamily:M,fontWeight:700,color:"var(--orange-d)"}}>{f$(porCobrar)}</span></div>}
+              <Divider/>
+              <div style={{display:"flex",justifyContent:"space-between"}}><span style={{fontSize:13,color:"var(--muted)"}}>Balance sin facturar</span><span style={{fontFamily:M,fontWeight:700,color:"var(--text)"}}>{f$(sel.contractValue-total)}</span></div>
+            </div>
+          </Card>
+        </div>}
+      </div>
+    </div>;
+  }
+
+  return<div style={{paddingBottom:80}}>
+    <div style={{padding:"16px"}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+        <div style={{fontSize:20,fontWeight:800}}>Proyectos</div>
+        <Btn size="sm" onClick={()=>setView("new")}>+ Nuevo</Btn>
+      </div>
+      {projects.map(p=>{
+        const cobrado=p.payApps.filter(pa=>pa.status==="Paid").reduce((s,pa)=>s+pa.amount,0);
+        const pending=p.payApps.filter(pa=>pa.status==="Sent").reduce((s,pa)=>s+pa.amount,0);
+        return<Card key={p.id} style={{marginBottom:12,cursor:"pointer"}} onClick={()=>{setSelId(p.id);setView("detail");}}>
+          <div style={{padding:"16px"}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10}}>
+              <div>
+                <div style={{fontSize:17,fontWeight:700,marginBottom:2}}>{p.name}</div>
+                <div style={{fontSize:12,color:"var(--muted)"}}>{p.client||"Sin cliente"} · {f$(p.contractValue)}</div>
+              </div>
+              <Pill label={p.status==="active"?"Activo":"Cerrado"} color={p.status==="active"?"green":"slate"}/>
+            </div>
+            <ProgressBar value={cobrado} max={p.contractValue}/>
+            <div style={{display:"flex",justifyContent:"space-between",marginTop:8}}>
+              <span style={{fontSize:12,color:"var(--green)",fontWeight:600}}>Cobrado: {f$(cobrado)}</span>
+              {pending>0&&<span style={{fontSize:12,color:"var(--orange-d)",fontWeight:600}}>P/cobrar: {f$(pending)}</span>}
+              <span style={{fontSize:12,color:"var(--muted)"}}>{pct(cobrado,p.contractValue)}%</span>
+            </div>
+          </div>
+        </Card>;
+      })}
+    </div>
+  </div>;
+}
+
+/* ─── COMPRAS ─── */
+function Compras({projects,purchases,setPurchases,expenses,setExpenses,role,toast}){
+  const[subTab,setSubTab]=useState("compras");
+  const[form,setForm]=useState({projectId:projects[0]?.id||"",date:TODAY,description:"",category:"Materiales",amount:"",notes:""});
+  const[eForm,setEForm]=useState({date:TODAY,description:"",category:"Gasolina",amount:""});
+  const[adding,setAdding]=useState(false);
+  const PCATS=["Materiales","Herramientas","Equipos rentados","Transporte","Subcontrato","Otros"];
+  const GCATS=["Seguro compañía","Gasolina","Contabilidad","Registros/Licencias","Comunicaciones","Otros"];
+  const saveP=()=>{if(!form.description||!form.amount)return;setPurchases(p=>[...p,{id:Date.now(),projectId:+form.projectId,date:form.date,description:form.description,category:form.category,amount:+form.amount,notes:form.notes}]);setForm({projectId:projects[0]?.id||"",date:TODAY,description:"",category:"Materiales",amount:"",notes:""});setAdding(false);toast("Compra guardada");};
+  const saveE=()=>{if(!eForm.description||!eForm.amount)return;setExpenses(p=>[...p,{id:Date.now(),date:eForm.date,description:eForm.description,category:eForm.category,amount:+eForm.amount}]);setEForm({date:TODAY,description:"",category:"Gasolina",amount:""});setAdding(false);toast("Gasto guardado");};
+  return<div style={{paddingBottom:80}}>
+    <div style={{padding:"12px 16px 0"}}>
+      <div style={{display:"flex",gap:8,marginBottom:16}}>
+        {[["compras","🛒 Compras"],["gastos","💼 Gastos Generales"]].map(([v,l])=><button key={v} onClick={()=>{setSubTab(v);setAdding(false);}} style={{flex:1,padding:"10px",border:"none",borderRadius:10,background:subTab===v?"var(--orange)":"var(--surface)",color:subTab===v?"white":"var(--muted)",fontWeight:600,fontSize:13,cursor:"pointer"}}>{l}</button>)}
+      </div>
+    </div>
+    {subTab==="compras"&&<div style={{padding:"0 16px"}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+        <div style={{fontSize:15,fontWeight:700}}>Compras por proyecto</div>
+        <Btn size="sm" onClick={()=>setAdding(!adding)}>+ Nueva</Btn>
+      </div>
+      {adding&&<Card style={{marginBottom:12}}>
+        <div style={{padding:16,background:"var(--orange-l)"}}>
+          <Select label="Proyecto" value={form.projectId} onChange={e=>setForm({...form,projectId:e.target.value})}>{projects.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</Select>
+          <Select label="Categoría" value={form.category} onChange={e=>setForm({...form,category:e.target.value})}>{PCATS.map(c=><option key={c}>{c}</option>)}</Select>
+          <Input label="Descripción" value={form.description} onChange={e=>setForm({...form,description:e.target.value})} placeholder="Ej: Bloques 8x8x16 — 200 uds"/>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+            <Input label="Monto ($)" type="number" value={form.amount} onChange={e=>setForm({...form,amount:e.target.value})}/>
+            <Input label="Fecha" type="date" value={form.date} onChange={e=>setForm({...form,date:e.target.value})}/>
+          </div>
+          <Btn onClick={saveP} full>Guardar compra</Btn>
+        </div>
+      </Card>}
+      {purchases.length===0?<Empty icon="🛒" msg="Sin compras" sub="Agrega la primera compra"/>:
+      <div style={{display:"grid",gap:10}}>
+        {purchases.slice().reverse().map(pu=>{const pj=projects.find(p=>p.id===pu.projectId);return<Card key={pu.id}>
+          <div style={{padding:"14px 16px",display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+            <div style={{flex:1}}>
+              <div style={{fontSize:14,fontWeight:600,marginBottom:2}}>{pu.description}</div>
+              <div style={{fontSize:12,color:"var(--muted)",marginBottom:6}}>{fmtDate(pu.date)} · {pj?.name}</div>
+              <Pill label={pu.category} color="purple"/>
+            </div>
+            <div style={{textAlign:"right"}}>
+              <div style={{fontSize:18,fontWeight:700,fontFamily:M,color:"var(--purple)"}}>{f$(pu.amount)}</div>
+              {role==="admin"&&<button onClick={()=>setPurchases(p=>p.filter(x=>x.id!==pu.id))} style={{background:"none",border:"none",color:"var(--red)",fontSize:12,cursor:"pointer",marginTop:4}}>Eliminar</button>}
+            </div>
+          </div>
+        </Card>;})}
+      </div>}
+    </div>}
+    {subTab==="gastos"&&<div style={{padding:"0 16px"}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+        <div style={{fontSize:15,fontWeight:700}}>Gastos generales</div>
+        <Btn size="sm" onClick={()=>setAdding(!adding)}>+ Nuevo</Btn>
+      </div>
+      {adding&&<Card style={{marginBottom:12}}>
+        <div style={{padding:16,background:"var(--blue-l)"}}>
+          <Select label="Categoría" value={eForm.category} onChange={e=>setEForm({...eForm,category:e.target.value})}>{GCATS.map(c=><option key={c}>{c}</option>)}</Select>
+          <Input label="Descripción" value={eForm.description} onChange={e=>setEForm({...eForm,description:e.target.value})} placeholder="Ej: Seguro mensual"/>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+            <Input label="Monto ($)" type="number" value={eForm.amount} onChange={e=>setEForm({...eForm,amount:e.target.value})}/>
+            <Input label="Fecha" type="date" value={eForm.date} onChange={e=>setEForm({...eForm,date:e.target.value})}/>
+          </div>
+          <Btn onClick={saveE} full>Guardar gasto</Btn>
+        </div>
+      </Card>}
+      {expenses.length===0?<Empty icon="💼" msg="Sin gastos generales"/>:
+      <div style={{display:"grid",gap:10}}>
+        {expenses.slice().reverse().map(ex=><Card key={ex.id}>
+          <div style={{padding:"14px 16px",display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+            <div style={{flex:1}}>
+              <div style={{fontSize:14,fontWeight:600,marginBottom:2}}>{ex.description}</div>
+              <div style={{fontSize:12,color:"var(--muted)",marginBottom:6}}>{fmtDate(ex.date)}</div>
+              <Pill label={ex.category} color="blue"/>
+            </div>
+            <div style={{textAlign:"right"}}>
+              <div style={{fontSize:18,fontWeight:700,fontFamily:M,color:"var(--blue)"}}>{f$(ex.amount)}</div>
+              {role==="admin"&&<button onClick={()=>setExpenses(p=>p.filter(x=>x.id!==ex.id))} style={{background:"none",border:"none",color:"var(--red)",fontSize:12,cursor:"pointer",marginTop:4}}>Eliminar</button>}
+            </div>
+          </div>
+        </Card>)}
+      </div>}
+    </div>}
+  </div>;
+}
+
+/* ─── PERSONAL (ADMIN) ─── */
+function Personal({workers,setWorkers,pending,setPending,timeEntries,toast,pinUsers,setPinUsers}){
+  const[subTab,setSubTab]=useState("lista");
+  const[form,setForm]=useState({name:"",role:"Ayudante",appRole:"worker",payType:"hourly",rate:""});
+  const[adding,setAdding]=useState(false);
+  const addWorker=()=>{if(!form.name||!form.rate)return;const w={id:Date.now(),name:form.name,role:form.role,appRole:form.appRole,payType:form.payType,hourlyRate:form.payType==="hourly"?+form.rate:null,weeklyRate:form.payType==="salary"?+form.rate:null};setWorkers(p=>[...p,w]);setForm({name:"",role:"Ayudante",appRole:"worker",payType:"hourly",rate:""});setAdding(false);toast("Trabajador agregado");};
+  const approve=(pw,payType,rate)=>{const w={id:Date.now(),name:pw.name,role:pw.role,appRole:"worker",payType,hourlyRate:payType==="hourly"?+rate:null,weeklyRate:payType==="salary"?+rate:null};setWorkers(p=>[...p,w]);setPending(p=>p.filter(x=>x.id!==pw.id));toast("✅ "+pw.name+" aprobado");};
+  const[apprData,setApprData]=useState({});
+  const[approving,setApproving]=useState(null);
+  return<div style={{paddingBottom:80}}>
+    {approving&&<div style={{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.6)",zIndex:999,display:"flex",alignItems:"flex-end",justifyContent:"center"}} onClick={()=>setApproving(null)}>
+      <div style={{background:"white",borderRadius:"20px 20px 0 0",padding:"24px 20px",width:"100%",maxWidth:480}} onClick={e=>e.stopPropagation()}>
+        <div style={{width:40,height:4,background:"var(--border)",borderRadius:99,margin:"0 auto 20px"}}/>
+        <div style={{fontSize:18,fontWeight:800,marginBottom:4}}>Aprobar trabajador</div>
+        <div style={{fontSize:14,color:"var(--muted)",marginBottom:20}}>Asigna el pago para <strong>{approving.name}</strong> — {approving.role}</div>
+        <Select label="Tipo de pago" value={apprData[approving.id]?.payType||"hourly"} onChange={e=>setApprData(p=>({...p,[approving.id]:{...p[approving.id],payType:e.target.value}}))}><option value="hourly">Por hora ($/hr)</option><option value="salary">Salario semanal ($)</option></Select>
+        <Input label={(apprData[approving.id]?.payType||"hourly")==="salary"?"Salario semanal ($)":"Tarifa por hora ($/hr)"} type="number" value={apprData[approving.id]?.rate||""} onChange={e=>setApprData(p=>({...p,[approving.id]:{...p[approving.id],rate:e.target.value}}))} placeholder={(apprData[approving.id]?.payType||"hourly")==="salary"?"Ej: 1200":"Ej: 21"}/>
+        <div style={{display:"flex",gap:10,marginTop:8}}>
+          <Btn onClick={()=>{const ad=apprData[approving.id]||{};if(!ad.rate){alert("Ingresa la tarifa primero");return;}approve(approving,ad.payType||"hourly",ad.rate);setApproving(null);}} full>✓ Aprobar y agregar</Btn>
+          <Btn variant="danger" onClick={()=>{setPending(p=>p.filter(x=>x.id!==approving.id));setApproving(null);toast("Solicitud rechazada");}}>Rechazar</Btn>
+        </div>
+      </div>
+    </div>}
+    <div style={{padding:"12px 16px 0"}}>
+      <div style={{display:"flex",gap:6,marginBottom:16,overflowX:"auto"}}>
+        {[["lista","👷 Personal"],["pendientes","⏳ Solicitudes"],["pines","🔐 PINs"]].map(([v,l])=><button key={v} onClick={()=>setSubTab(v)} style={{flexShrink:0,padding:"8px 14px",border:"none",borderRadius:10,background:subTab===v?"var(--orange)":"var(--surface)",color:subTab===v?"white":"var(--muted)",fontWeight:600,fontSize:12,cursor:"pointer",position:"relative"}}>
+          {l}{v==="pendientes"&&pending.length>0&&<span style={{marginLeft:4,background:"var(--red)",color:"white",borderRadius:"50%",padding:"0 5px",fontSize:10,fontWeight:700}}>{pending.length}</span>}
+        </button>)}
+      </div>
+    </div>
+    {subTab==="lista"&&<div style={{padding:"0 16px"}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+        <div style={{fontSize:15,fontWeight:700}}>{workers.length} trabajadores</div>
+        <Btn size="sm" onClick={()=>setAdding(!adding)}>+ Agregar</Btn>
+      </div>
+      {adding&&<Card style={{marginBottom:12}}>
+        <div style={{padding:16,background:"var(--green-l)"}}>
+          <Input label="Nombre completo" value={form.name} onChange={e=>setForm({...form,name:e.target.value})} placeholder="Nombre del trabajador"/>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+            <Select label="Cargo" value={form.role} onChange={e=>setForm({...form,role:e.target.value})}><option>Ayudante</option><option>Carpintero</option><option>Cabillero</option><option>Foreman</option><option>General</option></Select>
+            <Select label="Tipo pago" value={form.payType} onChange={e=>setForm({...form,payType:e.target.value,rate:""})}><option value="hourly">Por hora</option><option value="salary">Salario semanal</option></Select>
+          </div>
+          <Input label={form.payType==="hourly"?"Tarifa ($/hr)":"Salario semanal ($)"} type="number" value={form.rate} onChange={e=>setForm({...form,rate:e.target.value})}/>
+          <Btn onClick={addWorker} full>Agregar a la lista</Btn>
+        </div>
+      </Card>}
+      {workers.map(w=><Card key={w.id} style={{marginBottom:10}}>
+        <div style={{padding:"14px 16px",display:"flex",alignItems:"center",gap:12}}>
+          <Avatar name={w.name} size={44}/>
+          <div style={{flex:1}}>
+            <div style={{fontWeight:700,fontSize:15}}>{w.name}</div>
+            <div style={{fontSize:12,color:"var(--muted)",marginBottom:6}}>{w.role}</div>
+            <Pill label={w.payType==="salary"?f$(w.weeklyRate)+"/sem":"$"+w.hourlyRate+"/hr"} color={w.payType==="salary"?"purple":"blue"}/>
+          </div>
+          <button onClick={()=>{if(confirm("¿Eliminar a "+w.name+"?"))setWorkers(p=>p.filter(x=>x.id!==w.id));}} style={{background:"none",border:"none",color:"var(--red)",fontSize:20,cursor:"pointer",padding:4}}>×</button>
+        </div>
+      </Card>)}
+    </div>}
+    {subTab==="pendientes"&&<div style={{padding:"0 16px"}}>
+      {pending.length===0?<Empty icon="✅" msg="Sin solicitudes pendientes"/>:
+      pending.map(pw=><Card key={pw.id} style={{marginBottom:10}}>
+        <div style={{padding:"14px 16px",display:"flex",alignItems:"center",gap:12}}>
+          <Avatar name={pw.name} size={44}/>
+          <div style={{flex:1}}>
+            <div style={{fontWeight:700,fontSize:15}}>{pw.name}</div>
+            <div style={{fontSize:12,color:"var(--muted)",marginBottom:4}}>{pw.role}{pw.notes&&" · "+pw.notes}</div>
+            <div style={{fontSize:11,color:"var(--muted)"}}>Solicitado: {pw.date}</div>
+          </div>
+          <div style={{display:"flex",flexDirection:"column",gap:6,alignItems:"flex-end"}}>
+            <Btn size="sm" onClick={()=>setApproving(pw)}>💰 Aprobar</Btn>
+            <Btn size="sm" variant="danger" onClick={()=>setPending(p=>p.filter(x=>x.id!==pw.id))}>Rechazar</Btn>
+          </div>
+        </div>
+      </Card>)}
+    </div>}
+    {subTab==="pines"&&<div style={{padding:"0 16px"}}>
+      <div style={{fontSize:13,color:"var(--muted)",marginBottom:16}}>Cambia los PINs de acceso de cada usuario.</div>
+      {pinUsers.map((u,i)=><Card key={u.id} style={{marginBottom:10}}>
+        <div style={{padding:"14px 16px",display:"flex",alignItems:"center",gap:12}}>
+          <div style={{fontSize:28}}>{u.emoji||"👤"}</div>
+          <div style={{flex:1}}>
+            <div style={{fontWeight:700,fontSize:15}}>{u.name}</div>
+            <div style={{fontSize:12,color:"var(--muted)"}}>{u.role==="admin"?"Admin":u.role==="supervisor"?"Supervisor":"Foreman"}</div>
+          </div>
+          <input type="text" maxLength={4} value={u.pin} onChange={e=>{const v=e.target.value.replace(/\D/g,"").slice(0,4);const updated=[...pinUsers];updated[i]={...u,pin:v};setPinUsers(updated);localStorage.setItem("nw:pins",JSON.stringify(updated));}} style={{width:70,padding:"8px 10px",border:"2px solid var(--orange-b)",borderRadius:10,fontSize:20,fontFamily:M,fontWeight:700,color:"var(--orange)",textAlign:"center",background:"var(--orange-l)"}}/>
+        </div>
+      </Card>)}
+    </div>}
+  </div>;
+}
+
+/* ─── CONFIG ─── */
+function Config({projects,setProjects,toast,onReset}){
+  const[adding,setAdding]=useState(false);
+  const[editId,setEditId]=useState(null);
+  const[form,setForm]=useState({name:"",code:"",client:"",email:"",address:"",contractValue:""});
+  const[ep,setEp]=useState({});
+  const addProj=()=>{if(!form.name||!form.contractValue)return;setProjects(p=>[...p,{id:Date.now(),name:form.name,code:form.code||form.name.slice(0,2).toUpperCase(),client:form.client,email:form.email,address:form.address,contractValue:+form.contractValue,status:"active",payApps:[],changeOrders:[],reimbSeq:0}]);setForm({name:"",code:"",client:"",email:"",address:"",contractValue:""});setAdding(false);toast("Proyecto creado");};
+  const saveEdit=()=>{setProjects(p=>p.map(proj=>proj.id===editId?{...proj,...ep,contractValue:ep.contractValue!==undefined?+ep.contractValue:proj.contractValue}:proj));setEditId(null);setEp({});};
+  return<div style={{paddingBottom:80}}>
+    <div style={{padding:"16px"}}>
+      <div style={{fontSize:20,fontWeight:800,marginBottom:16}}>Configuración</div>
+      <div style={{fontSize:15,fontWeight:700,marginBottom:12}}>Proyectos</div>
+      {projects.map(p=><Card key={p.id} style={{marginBottom:10}}>
+        {editId===p.id?<div style={{padding:16,background:"var(--orange-l)"}}>
+          <Input label="Nombre" value={ep.name!==undefined?ep.name:p.name} onChange={e=>setEp({...ep,name:e.target.value})}/>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+            <Input label="Código" value={ep.code!==undefined?ep.code:p.code} onChange={e=>setEp({...ep,code:e.target.value})}/>
+            <Input label="Contrato ($)" type="number" value={ep.contractValue!==undefined?ep.contractValue:p.contractValue} onChange={e=>setEp({...ep,contractValue:e.target.value})}/>
+          </div>
+          <Input label="Cliente" value={ep.client!==undefined?ep.client:p.client} onChange={e=>setEp({...ep,client:e.target.value})}/>
+          <Input label="Email cliente" value={ep.email!==undefined?ep.email:p.email} onChange={e=>setEp({...ep,email:e.target.value})}/>
+          <Input label="Dirección" value={ep.address!==undefined?ep.address:p.address} onChange={e=>setEp({...ep,address:e.target.value})}/>
+          <div style={{display:"flex",gap:8}}><Btn onClick={saveEdit} full>Guardar</Btn><Btn variant="ghost" onClick={()=>{setEditId(null);setEp({});}}>Cancelar</Btn></div>
+        </div>:
+        <div style={{padding:"14px 16px",display:"flex",alignItems:"center",gap:12}}>
+          <div style={{fontSize:28}}>🏗️</div>
+          <div style={{flex:1}}>
+            <div style={{fontWeight:700,fontSize:15}}>{p.name}</div>
+            <div style={{fontSize:12,color:"var(--muted)"}}>{p.client||"Sin cliente"} · {f$(p.contractValue)}</div>
+          </div>
+          <button onClick={()=>{setEditId(p.id);setEp({});}} style={{background:"none",border:"1px solid var(--border)",borderRadius:8,padding:"6px 12px",cursor:"pointer",fontSize:13,color:"var(--muted)"}}>Editar</button>
+        </div>}
+      </Card>)}
+      {adding?<Card style={{marginBottom:12}}>
+        <div style={{padding:16,background:"var(--green-l)"}}>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+            <Input label="Nombre del proyecto" value={form.name} onChange={e=>setForm({...form,name:e.target.value})} placeholder="Ej: Brickell Plaza"/>
+            <Input label="Código (para invoices)" value={form.code} onChange={e=>setForm({...form,code:e.target.value})} placeholder="Ej: BP1"/>
+          </div>
+          <Input label="Cliente" value={form.client} onChange={e=>setForm({...form,client:e.target.value})} placeholder="Nombre del cliente"/>
+          <Input label="Email del cliente" type="email" value={form.email} onChange={e=>setForm({...form,email:e.target.value})} placeholder="cliente@email.com"/>
+          <Input label="Valor del contrato ($)" type="number" value={form.contractValue} onChange={e=>setForm({...form,contractValue:e.target.value})} placeholder="0.00"/>
+          <div style={{display:"flex",gap:8}}><Btn onClick={addProj} full>Crear proyecto</Btn><Btn variant="ghost" onClick={()=>setAdding(false)}>Cancelar</Btn></div>
+        </div>
+      </Card>:<Btn variant="secondary" full onClick={()=>setAdding(true)}>+ Agregar proyecto</Btn>}
+      <Divider/>
+      <div style={{display:"flex",gap:10,marginTop:8}}>
+        <Btn variant="ghost" full onClick={()=>{if("Notification"in window)Notification.requestPermission();}}>🔔 Notificaciones</Btn>
+        <Btn variant="danger" full onClick={()=>{if(confirm("¿Resetear todos los datos?"))onReset();}}>Resetear</Btn>
+      </div>
+    </div>
+  </div>;
+}
+
+/* ─── APP ─── */
+function App(){
+  const[loaded,setLoaded]=useState(false);
+  const[saving,setSaving]=useState(false);
+  const[savedOk,setSavedOk]=useState(false);
+  const[user,setUser]=useState(null);
+  const[tab,setTab]=useState("dashboard");
+  const[projects,setProjects]=useState(DEFAULT_PROJECTS);
+  const[workers,setWorkers]=useState(DEFAULT_WORKERS);
+  const[timeEntries,setTimeEntries]=useState([]);
+  const[purchases,setPurchases]=useState([]);
+  const[expenses,setExpenses]=useState([]);
+  const[pending,setPending]=useState([]);
+  const[reimb,setReimb]=useState([]);
+  const[pinUsers,setPinUsers]=useState(DEFAULT_PINS);
+  const[viewProjectId,setViewProjectId]=useState(null);
+  const timer=useRef(null);
+  const{toasts,add:toast}=useToasts();
+
+  // LOAD
+  useEffect(()=>{
+    const load=async()=>{
+      const keys=[["projects",setProjects],["workers",setWorkers],["timeEntries",setTimeEntries],["purchases",setPurchases],["expenses",setExpenses],["pending",setPending],["reimb",setReimb]];
+      // Try Supabase first, fallback to localStorage
+      const oldKeys={"projects":"nw82:p","workers":"nw82:w","timeEntries":"nw82:t","purchases":"nw82:pu","expenses":"nw82:ex","pending":"nw82:pw","reimb":"nw82:rm"};
+      await Promise.all(keys.map(async([k,setter])=>{
+        const sbVal=await sbGet(k);
+        if(sbVal&&Array.isArray(sbVal)&&sbVal.length>0){setter(sbVal);return;}
+        // Migrate from old localStorage
+        try{const lv=localStorage.getItem(oldKeys[k]);if(lv){const p=JSON.parse(lv);if(Array.isArray(p)&&p.length>0){setter(p);await sbSet(k,p);}}}catch(e){}
+      }));
+      // Load PINs
+      try{const pv=localStorage.getItem("nw:pins");if(pv)setPinUsers(JSON.parse(pv));}catch(e){}
+      setLoaded(true);
+    };
+    load();
+    // Realtime
+    const ch=sb.channel("nw_sync").on("postgres_changes",{event:"UPDATE",schema:"public",table:"app_data"},(payload)=>{
+      const{key,value}=payload.new;
+      const map={projects:setProjects,workers:setWorkers,timeEntries:setTimeEntries,purchases:setPurchases,expenses:setExpenses,pending:setPending,reimb:setReimb};
+      if(map[key]&&Array.isArray(value))map[key](value);
+    }).subscribe();
+    return()=>sb.removeChannel(ch);
+  },[]);
+
+  // SAVE
+  useEffect(()=>{
+    if(!loaded)return;
+    if(timer.current)clearTimeout(timer.current);
+    setSaving(true);setSavedOk(false);
+    timer.current=setTimeout(async()=>{
+      await Promise.all([sbSet("projects",projects),sbSet("workers",workers),sbSet("timeEntries",timeEntries),sbSet("purchases",purchases),sbSet("expenses",expenses),sbSet("pending",pending),sbSet("reimb",reimb)]);
+      setSaving(false);setSavedOk(true);
+      setTimeout(()=>setSavedOk(false),2000);
+    },800);
+  },[projects,workers,timeEntries,purchases,expenses,pending,reimb,loaded]);
+
+  const reset=()=>{setProjects(DEFAULT_PROJECTS);setWorkers(DEFAULT_WORKERS);setTimeEntries([]);setPurchases([]);setExpenses([]);setPending([]);setReimb([]);};
+
+  if(!loaded)return<div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column",gap:16,background:"var(--orange)"}}>
+    <div style={{fontSize:64}}>👷</div>
+    <div style={{color:"white",fontSize:22,fontWeight:800}}>N&W Admin</div>
+    <div style={{width:40,height:40,borderRadius:"50%",border:"4px solid rgba(255,255,255,0.3)",borderTopColor:"white",animation:"spin 0.8s linear infinite"}}/>
+  </div>;
+
+  if(!user)return<LoginScreen pins={pinUsers} onLogin={(u)=>{setUser(u);setTab(u.role==="admin"?"dashboard":u.role==="supervisor"?"clock":"clock");}}/>;
+
+  const role=user.role;
+  const pendCount=pending.length;
+
+  // Render current tab
+  const renderTab=()=>{
+    if(tab==="dashboard")return<Dashboard projects={projects} timeEntries={timeEntries} workers={workers} purchases={purchases} expenses={expenses} reimb={reimb} onViewProject={(id)=>{setViewProjectId(id);setTab("proyectos");}}/>;
+    if(tab==="proyectos")return<Proyectos projects={projects} setProjects={setProjects} timeEntries={timeEntries} workers={workers} purchases={purchases} reimb={reimb} toast={toast} initProjectId={viewProjectId}/>;
+    if(tab==="clock")return<TimeClock projects={projects} workers={workers} setWorkers={setWorkers} timeEntries={timeEntries} setTimeEntries={setTimeEntries} pending={pending} setPending={setPending} role={role} user={user} toast={toast}/>;
+    if(tab==="personal")return<Personal workers={workers} setWorkers={setWorkers} pending={pending} setPending={setPending} timeEntries={timeEntries} toast={toast} pinUsers={pinUsers} setPinUsers={setPinUsers}/>;
+    if(tab==="compras")return<Compras projects={projects} purchases={purchases} setPurchases={setPurchases} expenses={expenses} setExpenses={setExpenses} role={role} toast={toast}/>;
+    if(tab==="config")return<Config projects={projects} setProjects={setProjects} toast={toast} onReset={reset}/>;
+    if(tab==="finanzas")return<Dashboard projects={projects} timeEntries={timeEntries} workers={workers} purchases={purchases} expenses={expenses} reimb={reimb} onViewProject={(id)=>{setViewProjectId(id);setTab("proyectos");}}/>;
+    return null;
+  };
+
+  return<div style={{minHeight:"100vh",background:"var(--surface)"}}>
+    <Toasts toasts={toasts}/>
+    {/* TOP BAR */}
+    <div style={{position:"sticky",top:0,zIndex:100,background:"white",borderBottom:"1px solid var(--border)",padding:"0 16px",height:56,display:"flex",alignItems:"center",gap:12}}>
+      <div style={{fontSize:24}}>👷</div>
+      <div style={{fontWeight:800,fontSize:17,color:"var(--orange)"}}>N&W</div>
+      <div style={{flex:1}}/>
+      <div style={{fontSize:12,color:"var(--muted)",display:"flex",alignItems:"center",gap:4}}>
+        <span style={{width:7,height:7,borderRadius:"50%",background:saving?"var(--orange)":savedOk?"var(--green)":"var(--border)",display:"inline-block",animation:saving?"pulse 0.7s infinite":"none"}}/>
+        {saving?"Guardando...":savedOk?"Guardado ✓":""}
+      </div>
+      <div style={{background:"var(--orange-l)",color:"var(--orange-d)",padding:"5px 10px",borderRadius:8,fontSize:12,fontWeight:600}}>{user.emoji} {user.name}</div>
+      <button onClick={()=>setUser(null)} style={{background:"none",border:"1px solid var(--border)",borderRadius:8,padding:"5px 10px",cursor:"pointer",fontSize:12,color:"var(--muted)"}}>Salir</button>
+    </div>
+    {/* CONTENT */}
+    <div className="fade" key={tab}>{renderTab()}</div>
+    {/* BOTTOM NAV */}
+    <BottomNav tab={tab} setTab={setTab} role={role} pendingCount={pendCount}/>
+  </div>;
+}
+
+ReactDOM.render(<App/>,document.getElementById("root"));
+</script>
+</body>
+</html>
